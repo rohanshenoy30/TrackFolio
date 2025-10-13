@@ -3,3 +3,9 @@ npx create-next-app@latest trackfolio
 cd trackfolio
 npm install @react-oauth/google jwt-decode
 npm run dev
+
+
+
+http://localhost:3000
+
+This is the link where the site is hosted.

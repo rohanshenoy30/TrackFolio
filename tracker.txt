@@ -1,0 +1,5 @@
+cd ~/Desktop
+npx create-next-app@latest trackfolio
+cd trackfolio
+npm install @react-oauth/google jwt-decode
+npm run dev

@@ -13,9 +13,11 @@ export default function LoginPage() {
     { id: 1, name: 'My First Portfolio', stocks: [] }
   ])
   const [activePortfolioId, setActivePortfolioId] = useState(1)
-
-  // Form state
-  const [ticker, setTicker] = useState('')
+  // Ticker suggestion/autocomplete
+  const [tickerQuery, setTickerQuery] = useState('')
+  const [tickerSuggestions, setTickerSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  // Calculations/UI state
   const [buy, setBuy] = useState('')
   const [sell, setSell] = useState('')
   const [qty, setQty] = useState('')
@@ -32,8 +34,30 @@ export default function LoginPage() {
       setUser(decoded)
     }
   }
-
   const onError = () => alert('Login Failed')
+
+  // Use the proxy route!
+  const fetchSuggestions = async (query) => {
+    if (!query || query.length < 1) { setTickerSuggestions([]); return }
+    try {
+      const url = `/api/yahoo-search?query=${encodeURIComponent(query)}`
+      const res = await fetch(url)
+      const data = await res.json()
+      setTickerSuggestions(
+        (data.quotes || []).map(q => ({
+          symbol: q.symbol,
+          name: q.shortname || q.longname || q.name || q.symbol
+        }))
+      )
+    } catch (e) {
+      setTickerSuggestions([])
+    }
+  }
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => { fetchSuggestions(tickerQuery); }, 300)
+    return () => clearTimeout(handler)
+  }, [tickerQuery])
 
   const handleCreatePortfolio = () => {
     const name = prompt("Enter portfolio name:")
@@ -44,17 +68,16 @@ export default function LoginPage() {
     setSidebarOpen(false)
   }
 
-  // Add stock to current portfolio 
   const handleCalculate = () => {
-    if (!ticker || !buy || !sell || !qty) return setCalcResult('Fill all fields!')
+    if (!tickerQuery || !buy || !sell || !qty) return setCalcResult('Fill all fields!')
     const profitLoss = ((sell - buy) * qty)
     setCalcResult(`Return: ₹${profitLoss.toLocaleString()} (${profitLoss >= 0 ? 'Profit' : 'Loss'})`)
     setPortfolios(portfolios.map(p =>
       p.id === activePortfolioId
-        ? { ...p, stocks: [...p.stocks, { ticker: ticker.toUpperCase(), buy: +buy, sell: +sell, qty: +qty, pl: profitLoss }] }
+        ? { ...p, stocks: [...p.stocks, { ticker: tickerQuery.toUpperCase(), buy: +buy, sell: +sell, qty: +qty, pl: profitLoss }] }
         : p))
-    // optionally clear form:
-    setTicker(''); setBuy(''); setSell(''); setQty('')
+    // clear form
+    setTickerQuery(''); setBuy(''); setSell(''); setQty('')
   }
 
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId) || { stocks: [] }
@@ -247,19 +270,63 @@ export default function LoginPage() {
                     marginBottom: '2rem'
                   }}>
                     <h2 style={{ color: '#7cf29b' }}>Add Stock Result</h2>
-                    <div style={{display: 'flex', gap: 12}}>
-                      <input
-                        type="text"
-                        placeholder="Ticker (e.g. TCS)"
-                        value={ticker}
-                        onChange={e => setTicker(e.target.value)}
-                        style={{
-                          width: 110,
-                          padding: '10px', borderRadius: '6px',
-                          border: '1px solid #4caf50',
-                          backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
-                        }}
-                      />
+                    <div style={{display: 'flex', gap: 12, alignItems:'flex-start'}}>
+                      {/* Ticker Autocomplete */}
+                      <div style={{position: 'relative'}}>
+                        <input
+                          type="text"
+                          placeholder="Ticker (Type company name)"
+                          value={tickerQuery}
+                          onChange={e => { setTickerQuery(e.target.value); setShowSuggestions(true); }}
+                          onFocus={() => setShowSuggestions(true)}
+                          onBlur={() => setTimeout(()=>setShowSuggestions(false),150)}
+                          style={{
+                            width: 170,
+                            padding: '10px',
+                            borderRadius: '6px',
+                            border: '1px solid #4caf50',
+                            backgroundColor: '#0c1a0f',
+                            color: '#c8facc',
+                            outline: 'none',
+                            fontSize: '1.08rem'
+                          }}
+                        />
+                        {showSuggestions && tickerSuggestions.length > 0 && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              zIndex: 10,
+                              top: 42,
+                              left: 0,
+                              right: 0,
+                              background: '#1a2b1f',
+                              borderRadius: 6,
+                              boxShadow: '0 2px 12px #0009',
+                              maxHeight: 180,
+                              overflowY: 'auto'
+                            }}>
+                            {tickerSuggestions.map(sug => (
+                              <div
+                                key={sug.symbol}
+                                onMouseDown={() => {
+                                  setTickerQuery(sug.symbol)
+                                  setShowSuggestions(false)
+                                }}
+                                style={{
+                                  padding: '8px 12px',
+                                  color: '#4caf50',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <span style={{fontWeight: 600}}>{sug.symbol}</span>
+                                {" "}
+                                <span style={{fontSize: '0.97em', color: '#a8d5ba'}}>{sug.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Buy, Sell, Quantity, Add */}
                       <input type="number" placeholder="Buy" value={buy}
                         onChange={e => setBuy(e.target.value)}
                         style={{

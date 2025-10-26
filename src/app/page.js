@@ -396,14 +396,14 @@ export default function LoginPage() {
                         )}
                       </div>
                       {/* Buy, Sell (dates), Quantity, Add */}
-                      <input type="text" placeholder="Buy (YYYY-MM-DD or DD/MM/YYYY)" value={buy}
+                      <input type="text" placeholder="Buy (YYYY-MM-DD)" value={buy}
                         onChange={e => setBuy(e.target.value)}
                         style={{
                           width: 180, padding: '10px', borderRadius: '6px',
                           border: '1px solid #4caf50',
                           backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
                         }}/>
-                      <input type="text" placeholder="Sell (YYYY-MM-DD or DD/MM/YYYY)" value={sell}
+                      <input type="text" placeholder="Sell (YYYY-MM-DD)" value={sell}
                         onChange={e => setSell(e.target.value)}
                         style={{
                           width: 180, padding: '10px', borderRadius: '6px',

@@ -3,6 +3,9 @@ from schemas import StockCreate
 from database import get_db_connection
 from fastapi.middleware.cors import CORSMiddleware
 import backend
+from fastapi import FastAPI, HTTPException
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 origins = [
     "http://localhost:3000",
@@ -12,10 +15,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,       # React dev URLs
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],         # allow POST, GET, etc.
-    allow_headers=["*"],         # allow all custom headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.post("/api/add_stock")
@@ -33,6 +36,19 @@ def add_stock(stock: StockCreate):
         conn.close()
     return {"message": "Stock added successfully"}
 
-@app.get("/ping")
-def ping():
-    return {"status": "ok"}
+@app.post("/api/login")
+async def login(user_info: dict):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    email = user_info.get('email')
+    name = user_info.get('name')
+
+    try:
+        backend.add_user(name)
+        print("✅ Commit successful")
+    except Exception as e:
+        conn.rollback()
+        print("❌ DB error:", e)
+
+    
+    return {"message": f"User {name} with email {email} logged in successfully."}

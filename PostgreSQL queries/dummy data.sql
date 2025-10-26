@@ -8,19 +8,14 @@ insert into tf_user values
 	('shaurya'),
 	('rohan');
 
+-- FIX THIS
+
 insert into portfolio values
 	(100, 'Portfolio A'),
 	(101, 'Portfolio B'),
 	(200, 'Portfolio A'),
 	(300, 'Portfolio C'),
 	(201, 'Portfolio A');
-
-insert into user_portfolio values
-	('akhil', 100),
-	('akhil', 101),
-	('shaurya', 200),
-	('rohan', 300),
-	('shaurya', 201);
 
 insert into stock values
 	(100, 'GOOD', 	'2020-10-10 11:30:00', '2022-10-10 11:30:00', 100),

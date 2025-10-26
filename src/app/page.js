@@ -32,6 +32,14 @@ export default function LoginPage() {
       }
       const decoded = jwtDecode(credentialResponse.credential)
       setUser(decoded)
+      
+      console.log(decoded.email, decoded.name)
+
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: decoded.email, name: decoded.name })  // <-- use property names
+      });
     }
   }
   const onError = () => alert('Login Failed')

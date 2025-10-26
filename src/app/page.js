@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [sell, setSell] = useState('')
   const [qty, setQty] = useState('')
   const [calcResult, setCalcResult] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const onSuccess = async (credentialResponse) => {
     if (credentialResponse.credential) {
@@ -32,10 +33,7 @@ export default function LoginPage() {
       }
       const decoded = jwtDecode(credentialResponse.credential)
       setUser(decoded)
-      
-      console.log(decoded.email, decoded.name)
-
-      const response = await fetch('/api/login', {
+      await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: decoded.email, name: decoded.name })
@@ -44,7 +42,7 @@ export default function LoginPage() {
   }
   const onError = () => alert('Login Failed')
 
-  // Use the proxy route!
+  // Yahoo symbol autocomplete via proxy
   const fetchSuggestions = async (query) => {
     if (!query || query.length < 1) { setTickerSuggestions([]); return }
     try {
@@ -76,35 +74,87 @@ export default function LoginPage() {
     setSidebarOpen(false)
   }
 
-  const handleCalculate = async() => {
-    if (!tickerQuery || !buy || !sell || !qty) return setCalcResult('Fill all fields!')
-    const profitLoss = ((sell - buy) * qty)
-    setCalcResult(`Return: ₹${profitLoss.toLocaleString()} (${profitLoss >= 0 ? 'Profit' : 'Loss'})`)
-    console.log("Added Stock")
-    await fetch('/api/add_stock', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ticker: tickerQuery.toUpperCase(),
-        buy_date: buy,
-        sell_date: sell,
-        quantity: Number(qty),
-        portfolio_id: activePortfolioId
-      })
-    })
-    
-    setPortfolios(portfolios.map(p =>
-      p.id === activePortfolioId
-        ? { ...p, stocks: [...p.stocks, { ticker: tickerQuery.toUpperCase(), buy: +buy, sell: +sell, qty: +qty, pl: profitLoss }] }
-        : p))
-    // clear form
-    setTickerQuery(''); setBuy(''); setSell(''); setQty('')
+  // Normalize dd/mm/yyyy OR yyyy-mm-dd to yyyy-mm-dd
+  function normalizeDate(input) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input
+    const m = input.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`
+    return input
+  }
+
+  // --- HISTORICAL API FETCH LOGIC ---
+  const handleCalculate = async () => {
+    if (!tickerQuery || !buy || !sell || !qty) {
+      setCalcResult('Fill all fields!')
+      return
+    }
+    setIsLoading(true)
+    setCalcResult('Fetching price data from Yahoo...')
+
+    // Fix: normalize both dates
+    const buyNorm = normalizeDate(buy)
+    const sellNorm = normalizeDate(sell)
+    try {
+      const url = `/api/yahoo-historical?symbol=${encodeURIComponent(tickerQuery)}&start=${buyNorm}&end=${sellNorm}`
+      const res = await fetch(url)
+      const data = await res.json()
+      const results = data.chart?.result?.[0]
+      if (!results) throw new Error('No price data found')
+      const prices = results.indicators?.quote?.[0]?.close
+      const timestamps = results.timestamp
+
+      function findClosestDateIdx(dateStr) {
+        const targetTime = new Date(dateStr).getTime()
+        let idx = -1, minDiff = Infinity
+        timestamps.forEach((ts, i) => {
+          const curTime = ts * 1000
+          if (curTime <= targetTime && targetTime - curTime < minDiff) {
+            minDiff = targetTime - curTime
+            idx = i
+          }
+        })
+        return idx
+      }
+
+      const buyIdx = findClosestDateIdx(buyNorm)
+      const sellIdx = findClosestDateIdx(sellNorm)
+      if (buyIdx === -1 || sellIdx === -1) {
+        setCalcResult('No close data for given date(s)!')
+        setIsLoading(false)
+        return
+      }
+      const buyPrice = prices[buyIdx]
+      const sellPrice = prices[sellIdx]
+      const actualBuyDate = new Date(timestamps[buyIdx]*1000).toISOString().slice(0,10)
+      const actualSellDate = new Date(timestamps[sellIdx]*1000).toISOString().slice(0,10)
+      const profitLoss = ((sellPrice - buyPrice) * qty).toFixed(2)
+      setCalcResult(`Bought @₹${buyPrice} on ${actualBuyDate}, Sold @₹${sellPrice} on ${actualSellDate}, P/L = ₹${profitLoss}`)
+      setPortfolios(portfolios.map(p =>
+        p.id === activePortfolioId
+          ? { ...p, stocks: [
+              ...p.stocks, 
+              { 
+                ticker: tickerQuery.toUpperCase(),
+                buy: actualBuyDate,
+                sell: actualSellDate,
+                qty: +qty,
+                buyPrice,
+                sellPrice,
+                pl: +profitLoss
+              }
+            ]}
+          : p
+      ))
+      setTickerQuery(''); setBuy(''); setSell(''); setQty('')
+    } catch (err) {
+      setCalcResult('Error or no price data from Yahoo.')
+    }
+    setIsLoading(false)
   }
 
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId) || { stocks: [] }
   const totalPL = activePortfolio.stocks.reduce((a, s) => a + s.pl, 0)
 
-  // Chart data
   const chartData = {
     labels: activePortfolio.stocks.map(s => s.ticker),
     datasets: [{
@@ -347,15 +397,15 @@ export default function LoginPage() {
                           </div>
                         )}
                       </div>
-                      {/* Buy, Sell, Quantity, Add */}
-                      <input type="date" placeholder="Buy" value={buy}
+                      {/* Buy, Sell (dates), Quantity, Add */}
+                      <input type="text" placeholder="Buy (YYYY-MM-DD or DD/MM/YYYY)" value={buy}
                         onChange={e => setBuy(e.target.value)}
                         style={{
                           width: 180, padding: '10px', borderRadius: '6px',
                           border: '1px solid #4caf50',
                           backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
                         }}/>
-                      <input type="date" placeholder="Sell" value={sell}
+                      <input type="text" placeholder="Sell (YYYY-MM-DD or DD/MM/YYYY)" value={sell}
                         onChange={e => setSell(e.target.value)}
                         style={{
                           width: 180, padding: '10px', borderRadius: '6px',
@@ -369,11 +419,11 @@ export default function LoginPage() {
                           border: '1px solid #4caf50',
                           backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
                         }}/>
-                      <button onClick={handleCalculate} style={{
+                      <button onClick={handleCalculate} disabled={isLoading} style={{
                         padding: '10px 14px', backgroundColor: '#4caf50',
                         color: 'black', borderRadius: '6px', border: 'none',
                         fontWeight: 700, fontSize: '1.08rem', cursor: 'pointer'
-                      }}>Add</button>
+                      }}>{isLoading ? "Loading..." : "Add"}</button>
                     </div>
                     <div style={{
                       marginTop: '1.2rem',
@@ -401,20 +451,29 @@ export default function LoginPage() {
                         <tr style={{color: '#86fac1', textAlign: 'left', fontWeight: 500}}>
                           <th>Ticker</th>
                           <th>Qty</th>
+                          <th>Buy Date</th>
+                          <th>Sell Date</th>
+                          <th>Buy Price</th>
+                          <th>Sell Price</th>
                           <th>P/L (₹)</th>
                         </tr>
                       </thead>
                       <tbody>
                         {activePortfolio.stocks.map((s, i) =>
-                          <tr key={s.ticker + i} style={{background: i%2 ? '#0c1a0f' : 'none'}}>
+                          <tr key={s.ticker + i}>
                             <td>{s.ticker}</td>
                             <td>{s.qty}</td>
+                            <td>{s.buy}</td>
+                            <td>{s.sell}</td>
+                            <td>{s.buyPrice?.toFixed(2)}</td>
+                            <td>{s.sellPrice?.toFixed(2)}</td>
                             <td style={{color: s.pl>=0 ? '#61fd86' : '#ff1744'}}>{s.pl}</td>
                           </tr>
                         )}
                         <tr style={{fontWeight: 600, color: '#4caf50'}}>
                           <td>Total</td>
                           <td>{activePortfolio.stocks.reduce((a,s)=>a+s.qty,0)}</td>
+                          <td colSpan={4}></td>
                           <td>{totalPL}</td>
                         </tr>
                       </tbody>

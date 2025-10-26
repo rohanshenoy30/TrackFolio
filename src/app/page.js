@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { GoogleLogin } from '@react-oauth/google'
-import { Pie } from 'react-chartjs-2'
-import { Chart, ArcElement, Tooltip, Legend } from 'chart.js'
-Chart.register(ArcElement, Tooltip, Legend)
+import { Pie, Line } from 'react-chartjs-2'
+import { Chart, ArcElement, Tooltip, Legend, LineElement, CategoryScale, LinearScale, PointElement } from 'chart.js'
+Chart.register(ArcElement, Tooltip, Legend, LineElement, CategoryScale, LinearScale, PointElement)
 
 export default function LoginPage() {
   const [user, setUser] = useState(null)
@@ -21,6 +21,10 @@ export default function LoginPage() {
   const [qty, setQty] = useState('')
   const [calcResult, setCalcResult] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  // --- For Line Chart
+  const [historicData, setHistoricData] = useState({}) // {ticker: {labels: [], values: []}}
+  const [portfolioHistory, setPortfolioHistory] = useState({labels: [], values: []})
 
   const onSuccess = async (credentialResponse) => {
     if (credentialResponse.credential) {
@@ -57,7 +61,7 @@ export default function LoginPage() {
     }
   }
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handler = setTimeout(() => { fetchSuggestions(tickerQuery); }, 300)
     return () => clearTimeout(handler)
   }, [tickerQuery])
@@ -85,7 +89,6 @@ export default function LoginPage() {
     }
     setIsLoading(true)
     setCalcResult('Fetching price data from Yahoo...')
-
     const buyNorm = normalizeDate(buy)
     const sellNorm = normalizeDate(sell)
     try {
@@ -161,6 +164,83 @@ export default function LoginPage() {
     }]
   }
 
+  // ----------- LINE CHART LOGIC BEGIN -----------
+  // Fetch all price histories for all stocks in portfolio, get all unique dates, and combine holdings
+
+  useEffect(() => {
+    // Only triggers on portfolio change
+    async function fetchPortfolioHistory() {
+      if (!activePortfolio.stocks.length) {
+        setHistoricData({})
+        setPortfolioHistory({labels: [], values: []})
+        return
+      }
+      const allData = {}
+      let allDates = new Set()
+      // For each stock, fetch historical range between its buy and sell
+      for (const stock of activePortfolio.stocks) {
+        const url = `/api/yahoo-historical?symbol=${stock.ticker}&start=${stock.buy}&end=${stock.sell}`
+        try {
+          const res = await fetch(url)
+          const data = await res.json()
+          const results = data.chart?.result?.[0]
+          if (!results) continue
+          const closes = results.indicators?.quote?.[0]?.close
+          const times = results.timestamp
+          // X: ISO date, Y: close * qty of this stock holding
+          const stockLabels = times.map(ts => new Date(ts*1000).toISOString().slice(0,10))
+          allDates = new Set([...allDates, ...stockLabels])
+          allData[stock.ticker] = {
+            labels: stockLabels,
+            values: closes.map((price) => +(price * stock.qty).toFixed(2))
+          }
+        } catch {}
+      }
+      // Build the union of all dates
+      const sortedDates = Array.from(allDates).sort()
+      // For each day: sum up the value of all holdings
+      const portfolioVals = sortedDates.map(date => {
+        let val = 0
+        for (const stock of activePortfolio.stocks) {
+          const hist = allData[stock.ticker]
+          if (!hist) continue
+          // Find value on this day if present
+          const idx = hist.labels.indexOf(date)
+          if (idx !== -1) val += hist.values[idx]
+        }
+        return +val.toFixed(2)
+      })
+      setHistoricData(allData)
+      setPortfolioHistory({labels: sortedDates, values: portfolioVals})
+    }
+    fetchPortfolioHistory()
+    // eslint-disable-next-line
+  }, [activePortfolio.stocks])
+
+  const lineChartData = {
+    labels: portfolioHistory.labels,
+    datasets: [
+      ...Object.entries(historicData).map(([ticker, hist], i) => ({
+        label: `Stock: ${ticker}`,
+        data: hist.values,
+        fill: false,
+        borderColor: ['#00b876', '#2196f3', '#fcff32', '#ff6f00', '#ff1744', '#651fff', '#32ffc8'][i % 7],
+        pointRadius: 0,
+        tension: 0.12,
+      })),
+      {
+        label: 'Total Portfolio Value',
+        data: portfolioHistory.values,
+        fill: false,
+        borderColor: '#4caf50',
+        borderWidth: 3,
+        pointRadius: 0,
+        tension: 0.1,
+      }
+    ]
+  }
+  // ----------- LINE CHART LOGIC END -----------
+
   return (
     <main
       style={{
@@ -194,9 +274,8 @@ export default function LoginPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', height: '100vh' }}>
-          {/* -------------- SIDEBAR --------------- */}
+          {/* Sidebar and Hamburger (unchanged) */}
           <div>
-            {/* Hamburger (menu lines) */}
             <div
               style={{
                 position: 'absolute',
@@ -213,7 +292,6 @@ export default function LoginPage() {
               <div style={{ width: 25, height: 5, background: '#4caf50', borderRadius: 2, marginBottom: 6 }}/>
               <div style={{ width: 20, height: 5, background: '#4caf50', borderRadius: 2 }}/>
             </div>
-            {/* Sidebar itself */}
             <div
               style={{
                 position: 'fixed',
@@ -230,8 +308,7 @@ export default function LoginPage() {
                 flexDirection: 'column'
               }}
             >
-              {/* ADD THIS WRAPPER TO SHIFT BELOW HAMBURGER */}
-              <div style={{marginTop: 54}}> {/* marginTop = height of hamburger+gap */}
+              <div style={{ marginTop: 54 }}>
                 <div style={{marginBottom: '1.7rem', fontWeight: 600, color: '#7cf29b', fontSize: '1.2rem', letterSpacing: '1.3px'}}>PORTFOLIOS</div>
                 <button
                   onClick={handleCreatePortfolio}
@@ -269,10 +346,9 @@ export default function LoginPage() {
                   ))}
                 </div>
               </div>
-              {/* END WRAPPER */}
             </div>
           </div>
-          {/* -------------- MAIN DASHBOARD PANEL --------------- */}
+          {/* Main Dashboard Panel */}
           <div style={{
             flex: 1,
             marginLeft: sidebarOpen ? 240 : 0,
@@ -478,8 +554,9 @@ export default function LoginPage() {
                     </table>
                   </div>
                 </div>
-                {/* Pie Chart */}
-                <div>
+                {/* Pie & Line Chart column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+                  {/* PIE CHART */}
                   <div style={{
                     backgroundColor: '#10291b',
                     padding: '1.5rem',
@@ -498,10 +575,38 @@ export default function LoginPage() {
                     </div>
                     <Pie data={chartData} />
                   </div>
+                  {/* LINE CHART */}
+                  <div style={{
+                    backgroundColor: '#10291b',
+                    padding: '1.2rem 1.2rem 1.5rem 1.2rem',
+                    borderRadius: '10px',
+                    border: '1px solid #205f38',
+                    minHeight: 350,
+                  }}>
+                    <div style={{
+                      color: '#7cf29b',
+                      fontSize: '1.15rem',
+                      fontWeight: 600,
+                      marginBottom: 8,
+                      textAlign: 'center'
+                    }}>
+                      Portfolio Value Over Time
+                    </div>
+                    <Line
+                      data={lineChartData}
+                      options={{
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: { legend: { display: true } },
+                        scales: {
+                          x: { ticks: { color: "#c8facc", maxTicksLimit: 10 } },
+                          y: { ticks: { color: "#c8facc" }, beginAtZero: true }
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-            {/* Footer */}
             <footer
               style={{
                 textAlign: 'center',

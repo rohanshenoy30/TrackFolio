@@ -1,16 +1,11 @@
 import psycopg2
 from Portfolio import Portfolio
-from Stock import Stock
 from datetime import datetime
+from database import get_db_connection
+from schemas import StockCreate
 
 print("connecting to DB")
-conn = psycopg2.connect(
-    host        = 'localhost',
-    dbname      = 'TrackFolioDB',
-    user        = 'postgres',
-    password    = 'postgres',
-    port        = 5432
-)
+conn = get_db_connection()
 cursor = conn.cursor()
 
 def execute(query : str):
@@ -53,7 +48,7 @@ def remove_stock_by_attributes(portfolio_id, ticker, buy_date : datetime, sell_d
         );
     """)
 
-def remove_stock(portfolio_id, stock : Stock):
+def remove_stock(portfolio_id, stock : StockCreate):
     remove_stock_by_attributes(portfolio_id, stock.ticker, stock.buy_date, stock.sell_date)
 
 def update_stock_quantity_by_attributes(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, new_quantity):
@@ -73,7 +68,7 @@ def update_stock_quantity_by_attributes(portfolio_id, ticker, buy_date : datetim
         );
     """)
 
-def update_stock_quantity(portfolio_id, stock : Stock, new_quantity):
+def update_stock_quantity(portfolio_id, stock : StockCreate, new_quantity):
     update_stock_quantity_by_attributes(portfolio_id, stock.ticker, stock.buy_date, stock.sell_date, new_quantity)
 
 def add_portfolio(user_id, portfolio_id, portfolio_name):

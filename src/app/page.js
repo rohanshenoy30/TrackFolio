@@ -68,10 +68,23 @@ export default function LoginPage() {
     setSidebarOpen(false)
   }
 
-  const handleCalculate = () => {
+  const handleCalculate = async() => {
     if (!tickerQuery || !buy || !sell || !qty) return setCalcResult('Fill all fields!')
     const profitLoss = ((sell - buy) * qty)
     setCalcResult(`Return: ₹${profitLoss.toLocaleString()} (${profitLoss >= 0 ? 'Profit' : 'Loss'})`)
+    console.log("Added Stock")
+    await fetch('/api/add_stock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticker: tickerQuery.toUpperCase(),
+        buy_date: buy,
+        sell_date: sell,
+        quantity: Number(qty),
+        portfolio_id: activePortfolioId
+      })
+    });
+    
     setPortfolios(portfolios.map(p =>
       p.id === activePortfolioId
         ? { ...p, stocks: [...p.stocks, { ticker: tickerQuery.toUpperCase(), buy: +buy, sell: +sell, qty: +qty, pl: profitLoss }] }
@@ -327,14 +340,14 @@ export default function LoginPage() {
                         )}
                       </div>
                       {/* Buy, Sell, Quantity, Add */}
-                      <input type="number" placeholder="Buy" value={buy}
+                      <input type="date" placeholder="Buy" value={buy}
                         onChange={e => setBuy(e.target.value)}
                         style={{
                           width: 70, padding: '10px', borderRadius: '6px',
                           border: '1px solid #4caf50',
                           backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
                         }}/>
-                      <input type="number" placeholder="Sell" value={sell}
+                      <input type="date" placeholder="Sell" value={sell}
                         onChange={e => setSell(e.target.value)}
                         style={{
                           width: 70, padding: '10px', borderRadius: '6px',

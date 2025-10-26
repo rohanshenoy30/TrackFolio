@@ -1,5 +1,4 @@
 import backend
-from Stock import Stock
 from datetime import datetime
 
 class Portfolio:
@@ -17,12 +16,12 @@ class Portfolio:
         self.name = name
         backend.rename_portfolio(self.id)
 
-    def get_stocks(self):
-        stockList = []
-        for key in self.stocks:
-            (ticker, buy_date, sell_date) = key
-            stockList.append(Stock(ticker, buy_date, sell_date, self.stocks[key]))
-        return stockList
+    # def get_stocks(self):
+    #     stockList = []
+    #     for key in self.stocks:
+    #         (ticker, buy_date, sell_date) = key
+    #         stockList.append(Stock(ticker, buy_date, sell_date, self.stocks[key]))
+    #     return stockList
     
     def add_stock(self, ticker, buy_date : datetime, sell_date : datetime, quantity):
         key = (ticker, buy_date, sell_date)

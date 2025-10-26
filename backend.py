@@ -22,6 +22,11 @@ def add_user(user_id):
     if not user_exists:
         execute(f"INSERT INTO tf_user VALUES ('{user_id}');")
 
+def ensure_default_portfolio(uid):
+    result = fetch(f"SELECT pid FROM portfolio WHERE pid = 1 AND uid = '{uid}';")
+    if not result:
+        execute(f"INSERT INTO portfolio (pid, pname, uid) VALUES (1, 'My First Portfolio', '{uid}');")
+
 def add_stock(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, quantity):
     execute(f"""
         insert into stock 

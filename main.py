@@ -45,6 +45,7 @@ async def login(user_info: dict):
 
     try:
         backend.add_user(name)
+        backend.ensure_default_portfolio(name)
         print("✅ Commit successful")
     except Exception as e:
         conn.rollback()

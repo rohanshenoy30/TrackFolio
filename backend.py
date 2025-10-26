@@ -12,13 +12,15 @@ def execute(query : str):
     cursor.execute(query)
     conn.commit()
 
+def fetch(query: str):
+    cursor.execute(query)
+    result = cursor.fetchall()
+    return result
+
 def add_user(user_id):
-    execute(f"""
-        insert into tf_user
-        values (
-            \'{user_id}\'
-        );
-    """)
+    user_exists = fetch(f"SELECT uid FROM tf_user WHERE uid = '{user_id}';")
+    if not user_exists:
+        execute(f"INSERT INTO tf_user VALUES ('{user_id}');")
 
 def add_stock(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, quantity):
     execute(f"""

@@ -38,8 +38,8 @@ export default function LoginPage() {
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: decoded.email, name: decoded.name })  // <-- use property names
-      });
+        body: JSON.stringify({ email: decoded.email, name: decoded.name })
+      })
     }
   }
   const onError = () => alert('Login Failed')
@@ -91,7 +91,7 @@ export default function LoginPage() {
         quantity: Number(qty),
         portfolio_id: activePortfolioId
       })
-    });
+    })
     
     setPortfolios(portfolios.map(p =>
       p.id === activePortfolioId
@@ -351,14 +351,14 @@ export default function LoginPage() {
                       <input type="date" placeholder="Buy" value={buy}
                         onChange={e => setBuy(e.target.value)}
                         style={{
-                          width: 70, padding: '10px', borderRadius: '6px',
+                          width: 180, padding: '10px', borderRadius: '6px',
                           border: '1px solid #4caf50',
                           backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
                         }}/>
                       <input type="date" placeholder="Sell" value={sell}
                         onChange={e => setSell(e.target.value)}
                         style={{
-                          width: 70, padding: '10px', borderRadius: '6px',
+                          width: 180, padding: '10px', borderRadius: '6px',
                           border: '1px solid #4caf50',
                           backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
                         }}/>
@@ -441,14 +441,6 @@ export default function LoginPage() {
                     </div>
                     <Pie data={chartData} />
                   </div>
-                </div>
-                {/* Filler column for more charts/extensions */}
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '2rem'
-                }}>
-                  {/* Add more chart panels here later if needed */}
                 </div>
               </div>
             </div>

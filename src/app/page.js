@@ -13,11 +13,9 @@ export default function LoginPage() {
     { id: 1, name: 'My First Portfolio', stocks: [] }
   ])
   const [activePortfolioId, setActivePortfolioId] = useState(1)
-  // Ticker suggestion/autocomplete
   const [tickerQuery, setTickerQuery] = useState('')
   const [tickerSuggestions, setTickerSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
-  // Calculations/UI state
   const [buy, setBuy] = useState('')
   const [sell, setSell] = useState('')
   const [qty, setQty] = useState('')
@@ -42,7 +40,6 @@ export default function LoginPage() {
   }
   const onError = () => alert('Login Failed')
 
-  // Yahoo symbol autocomplete via proxy
   const fetchSuggestions = async (query) => {
     if (!query || query.length < 1) { setTickerSuggestions([]); return }
     try {
@@ -74,7 +71,6 @@ export default function LoginPage() {
     setSidebarOpen(false)
   }
 
-  // Normalize dd/mm/yyyy OR yyyy-mm-dd to yyyy-mm-dd
   function normalizeDate(input) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input
     const m = input.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
@@ -82,7 +78,6 @@ export default function LoginPage() {
     return input
   }
 
-  // --- HISTORICAL API FETCH LOGIC ---
   const handleCalculate = async () => {
     if (!tickerQuery || !buy || !sell || !qty) {
       setCalcResult('Fill all fields!')
@@ -91,7 +86,6 @@ export default function LoginPage() {
     setIsLoading(true)
     setCalcResult('Fetching price data from Yahoo...')
 
-    // Fix: normalize both dates
     const buyNorm = normalizeDate(buy)
     const sellNorm = normalizeDate(sell)
     try {
@@ -236,42 +230,46 @@ export default function LoginPage() {
                 flexDirection: 'column'
               }}
             >
-              <div style={{marginBottom: '1.7rem', fontWeight: 600, color: '#7cf29b', fontSize: '1.2rem', letterSpacing: '1.3px'}}>PORTFOLIOS</div>
-              <button
-                onClick={handleCreatePortfolio}
-                style={{
-                  padding: '9px 0',
-                  marginBottom: '1.5rem',
-                  border: 'none',
-                  background: '#4caf50',
-                  color: '#00210f',
-                  borderRadius: 6,
-                  fontWeight: 700,
-                  fontSize: '1rem',
-                  cursor: 'pointer'
-                }}
-              >+ Create Portfolio</button>
-              <div style={{flex: 1, overflowY: 'auto'}}>
-                {portfolios.map((p) => (
-                  <div key={p.id}
-                    onClick={() => {
-                      setActivePortfolioId(p.id)
-                      setSidebarOpen(false)
-                    }}
-                    style={{
-                      padding: '11px 16px',
-                      marginBottom: 8,
-                      background: p.id === activePortfolioId ? '#c8facc22' : 'none',
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                      color: p.id === activePortfolioId ? '#4caf50' : '#c8facc',
-                      fontWeight: p.id === activePortfolioId ? 600 : 400,
-                      borderLeft: p.id === activePortfolioId ? '4px solid #4caf50' : '4px solid transparent',
-                    }}>
-                    {p.name}
-                  </div>
-                ))}
+              {/* ADD THIS WRAPPER TO SHIFT BELOW HAMBURGER */}
+              <div style={{marginTop: 54}}> {/* marginTop = height of hamburger+gap */}
+                <div style={{marginBottom: '1.7rem', fontWeight: 600, color: '#7cf29b', fontSize: '1.2rem', letterSpacing: '1.3px'}}>PORTFOLIOS</div>
+                <button
+                  onClick={handleCreatePortfolio}
+                  style={{
+                    padding: '9px 0',
+                    marginBottom: '1.5rem',
+                    border: 'none',
+                    background: '#4caf50',
+                    color: '#00210f',
+                    borderRadius: 6,
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    cursor: 'pointer'
+                  }}
+                >+ Create Portfolio</button>
+                <div style={{flex: 1, overflowY: 'auto'}}>
+                  {portfolios.map((p) => (
+                    <div key={p.id}
+                      onClick={() => {
+                        setActivePortfolioId(p.id)
+                        setSidebarOpen(false)
+                      }}
+                      style={{
+                        padding: '11px 16px',
+                        marginBottom: 8,
+                        background: p.id === activePortfolioId ? '#c8facc22' : 'none',
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        color: p.id === activePortfolioId ? '#4caf50' : '#c8facc',
+                        fontWeight: p.id === activePortfolioId ? 600 : 400,
+                        borderLeft: p.id === activePortfolioId ? '4px solid #4caf50' : '4px solid transparent',
+                      }}>
+                      {p.name}
+                    </div>
+                  ))}
+                </div>
               </div>
+              {/* END WRAPPER */}
             </div>
           </div>
           {/* -------------- MAIN DASHBOARD PANEL --------------- */}

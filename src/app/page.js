@@ -13,15 +13,15 @@ export default function LoginPage() {
     { id: 1, name: 'My First Portfolio', stocks: [] }
   ])
   const [activePortfolioId, setActivePortfolioId] = useState(1)
-  // Ticker suggestion/autocomplete
+
   const [tickerQuery, setTickerQuery] = useState('')
   const [tickerSuggestions, setTickerSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
-  // Calculations/UI state
-  const [buy, setBuy] = useState('')
-  const [sell, setSell] = useState('')
+  const [buyDate, setBuyDate] = useState('')
+  const [sellDate, setSellDate] = useState('')
   const [qty, setQty] = useState('')
   const [calcResult, setCalcResult] = useState(null)
+  const [isLoadingPrice, setIsLoadingPrice] = useState(false)
 
   const onSuccess = async (credentialResponse) => {
     if (credentialResponse.credential) {
@@ -44,9 +44,11 @@ export default function LoginPage() {
   }
   const onError = () => alert('Login Failed')
 
-  // Use the proxy route!
   const fetchSuggestions = async (query) => {
-    if (!query || query.length < 1) { setTickerSuggestions([]); return }
+    if (!query || query.length < 1) {
+      setTickerSuggestions([])
+      return
+    }
     try {
       const url = `/api/yahoo-search?query=${encodeURIComponent(query)}`
       const res = await fetch(url)
@@ -61,21 +63,21 @@ export default function LoginPage() {
       setTickerSuggestions([])
     }
   }
-
   React.useEffect(() => {
-    const handler = setTimeout(() => { fetchSuggestions(tickerQuery); }, 300)
+    const handler = setTimeout(() => { fetchSuggestions(tickerQuery) }, 300)
     return () => clearTimeout(handler)
   }, [tickerQuery])
 
   const handleCreatePortfolio = () => {
     const name = prompt("Enter portfolio name:")
     if (!name) return
-    const id = portfolios.length ? Math.max(...portfolios.map(p=>p.id)) + 1 : 1
+    const id = portfolios.length ? Math.max(...portfolios.map(p => p.id)) + 1 : 1
     setPortfolios([...portfolios, { id, name, stocks: [] }])
     setActivePortfolioId(id)
     setSidebarOpen(false)
   }
 
+<<<<<<< Updated upstream
   const handleCalculate = async() => {
     if (!tickerQuery || !buy || !sell || !qty) return setCalcResult('Fill all fields!')
     const profitLoss = ((sell - buy) * qty)
@@ -99,12 +101,102 @@ export default function LoginPage() {
         : p))
     // clear form
     setTickerQuery(''); setBuy(''); setSell(''); setQty('')
+=======
+  const handleCalculate = async () => {
+    if (!tickerQuery || !buyDate || !sellDate || !qty) {
+      setCalcResult('Fill all fields!')
+      return
+    }
+    setIsLoadingPrice(true)
+    setCalcResult('Fetching prices...')
+
+    try {
+      const url = `/api/yahoo-historical?symbol=${encodeURIComponent(tickerQuery)}&start=${buyDate}&end=${sellDate}`
+      const res = await fetch(url)
+      const data = await res.json()
+      const results = data.chart?.result?.[0]
+      if (!results) throw new Error('No data available')
+      const prices = results.indicators?.quote?.[0]?.close
+      const timestamps = results.timestamp
+
+      // Debug: See what dates Yahoo provides
+      console.log(
+        'Yahoo Timestamps:',
+        timestamps.map(ts => (new Date(ts * 1000)).toISOString().slice(0, 10)),
+        buyDate,
+        sellDate
+      )
+
+      // Find index of the timestamp closest on or before the date
+      function findClosestDateIdx(dateStr) {
+        const targetTime = new Date(dateStr).getTime()
+        let idx = -1
+        let minDiff = Infinity
+        timestamps.forEach((ts, i) => {
+          const curTime = ts * 1000
+          if (curTime <= targetTime && targetTime - curTime < minDiff) {
+            minDiff = targetTime - curTime
+            idx = i
+          }
+        })
+        return idx
+      }
+
+      const buyIdx = findClosestDateIdx(buyDate)
+      const sellIdx = findClosestDateIdx(sellDate)
+
+      if (buyIdx === -1 || sellIdx === -1 || !prices[buyIdx] || !prices[sellIdx]) {
+        setCalcResult('No price data for given date(s) (try other dates).')
+        setIsLoadingPrice(false)
+        return
+      }
+
+      const actualBuyDate = (new Date(timestamps[buyIdx] * 1000)).toISOString().slice(0, 10)
+      const actualSellDate = (new Date(timestamps[sellIdx] * 1000)).toISOString().slice(0, 10)
+      const buyPrice = prices[buyIdx]
+      const sellPrice = prices[sellIdx]
+      const profitLoss = ((sellPrice - buyPrice) * qty).toFixed(2)
+      setCalcResult(
+        `Bought at ₹${buyPrice} on ${actualBuyDate}, sold at ₹${sellPrice} on ${actualSellDate}. Return: ₹${profitLoss} (${profitLoss >= 0 ? 'Profit' : 'Loss'})`
+      )
+
+      setPortfolios(
+        portfolios.map(p =>
+          p.id === activePortfolioId
+            ? {
+                ...p,
+                stocks: [
+                  ...p.stocks,
+                  {
+                    ticker: tickerQuery.toUpperCase(),
+                    buyDate,
+                    sellDate,
+                    actualBuyDate,
+                    actualSellDate,
+                    qty: +qty,
+                    buyPrice,
+                    sellPrice,
+                    pl: +profitLoss,
+                  },
+                ],
+              }
+            : p
+        )
+      )
+      setTickerQuery('')
+      setBuyDate('')
+      setSellDate('')
+      setQty('')
+    } catch (e) {
+      setCalcResult('Error fetching prices.')
+    }
+    setIsLoadingPrice(false)
+>>>>>>> Stashed changes
   }
 
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId) || { stocks: [] }
   const totalPL = activePortfolio.stocks.reduce((a, s) => a + s.pl, 0)
 
-  // Chart data
   const chartData = {
     labels: activePortfolio.stocks.map(s => s.ticker),
     datasets: [{
@@ -126,11 +218,13 @@ export default function LoginPage() {
         fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
         overflow: 'hidden',
         position: 'relative'
-      }}>
+      }}
+    >
       {!user ? (
         <div
           style={{
-            background: 'linear-gradient(135deg, #0f5132, #003d1a)',
+            background:
+              'linear-gradient(135deg, #0f5132, #003d1a)',
             padding: '3rem 4rem',
             borderRadius: '15px',
             boxShadow: '0 8px 25px rgba(0, 64, 21, 0.6)',
@@ -139,11 +233,24 @@ export default function LoginPage() {
             left: '50%',
             top: '38%',
             transform: 'translate(-50%, -50%)'
-          }}>
-          <h1 style={{ color: '#4caf50', fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+          }}
+        >
+          <h1
+            style={{
+              color: '#4caf50',
+              fontSize: '2.5rem',
+              marginBottom: '0.5rem'
+            }}
+          >
             Welcome to Trackfolio
           </h1>
-          <p style={{ color: '#c8facc', fontSize: '1.15rem', marginBottom: '2rem' }}>
+          <p
+            style={{
+              color: '#c8facc',
+              fontSize: '1.15rem',
+              marginBottom: '2rem'
+            }}
+          >
             Track your portfolio like a pro.
           </p>
           <GoogleLogin onSuccess={onSuccess} onError={onError} />
@@ -165,9 +272,32 @@ export default function LoginPage() {
               tabIndex={0}
               aria-label="Open sidebar"
             >
-              <div style={{ width: 35, height: 5, background: '#4caf50', borderRadius: 2, marginBottom: 6 }}/>
-              <div style={{ width: 25, height: 5, background: '#4caf50', borderRadius: 2, marginBottom: 6 }}/>
-              <div style={{ width: 20, height: 5, background: '#4caf50', borderRadius: 2 }}/>
+              <div
+                style={{
+                  width: 35,
+                  height: 5,
+                  background: '#4caf50',
+                  borderRadius: 2,
+                  marginBottom: 6
+                }}
+              />
+              <div
+                style={{
+                  width: 25,
+                  height: 5,
+                  background: '#4caf50',
+                  borderRadius: 2,
+                  marginBottom: 6
+                }}
+              />
+              <div
+                style={{
+                  width: 20,
+                  height: 5,
+                  background: '#4caf50',
+                  borderRadius: 2
+                }}
+              />
             </div>
             {/* Sidebar itself */}
             <div
@@ -186,7 +316,17 @@ export default function LoginPage() {
                 flexDirection: 'column'
               }}
             >
-              <div style={{marginBottom: '1.7rem', fontWeight: 600, color: '#7cf29b', fontSize: '1.2rem', letterSpacing: '1.3px'}}>PORTFOLIOS</div>
+              <div
+                style={{
+                  marginBottom: '1.7rem',
+                  fontWeight: 600,
+                  color: '#7cf29b',
+                  fontSize: '1.2rem',
+                  letterSpacing: '1.3px'
+                }}
+              >
+                PORTFOLIOS
+              </div>
               <button
                 onClick={handleCreatePortfolio}
                 style={{
@@ -200,10 +340,13 @@ export default function LoginPage() {
                   fontSize: '1rem',
                   cursor: 'pointer'
                 }}
-              >+ Create Portfolio</button>
-              <div style={{flex: 1, overflowY: 'auto'}}>
-                {portfolios.map((p) => (
-                  <div key={p.id}
+              >
+                + Create Portfolio
+              </button>
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {portfolios.map(p => (
+                  <div
+                    key={p.id}
                     onClick={() => {
                       setActivePortfolioId(p.id)
                       setSidebarOpen(false)
@@ -216,8 +359,12 @@ export default function LoginPage() {
                       cursor: 'pointer',
                       color: p.id === activePortfolioId ? '#4caf50' : '#c8facc',
                       fontWeight: p.id === activePortfolioId ? 600 : 400,
-                      borderLeft: p.id === activePortfolioId ? '4px solid #4caf50' : '4px solid transparent',
-                    }}>
+                      borderLeft:
+                        p.id === activePortfolioId
+                          ? '4px solid #4caf50'
+                          : '4px solid transparent'
+                    }}
+                  >
                     {p.name}
                   </div>
                 ))}
@@ -225,31 +372,37 @@ export default function LoginPage() {
             </div>
           </div>
           {/* -------------- MAIN DASHBOARD PANEL --------------- */}
-          <div style={{
-            flex: 1,
-            marginLeft: sidebarOpen ? 240 : 0,
-            transition: 'margin-left 0.2s',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '100vh',
-            overflow: 'auto'
-          }}>
-            {/* Profile pic and logout */}
-            <div style={{
-              position: 'absolute',
-              top: '1.5rem',
-              right: '2rem',
+          <div
+            style={{
+              flex: 1,
+              marginLeft: sidebarOpen ? 240 : 0,
+              transition: 'margin-left 0.2s',
               display: 'flex',
-              alignItems: 'center',
-              gap: '1rem'
-            }}>
+              flexDirection: 'column',
+              minHeight: '100vh',
+              overflow: 'auto'
+            }}
+          >
+            {/* Profile pic and logout */}
+            <div
+              style={{
+                position: 'absolute',
+                top: '1.5rem',
+                right: '2rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem'
+              }}
+            >
               <div
                 style={{
-                  width: 50, height: 50, borderRadius: '50%',
+                  width: 50,
+                  height: 50,
+                  borderRadius: '50%',
                   border: '2px solid #4caf50',
                   backgroundImage: `url(${user.picture})`,
                   backgroundSize: 'cover',
-                  backgroundPosition: 'center',
+                  backgroundPosition: 'center'
                 }}
                 title="Profile"
               />
@@ -262,45 +415,70 @@ export default function LoginPage() {
                   borderRadius: '20px',
                   padding: '8px 18px',
                   fontWeight: 'bold',
-                  cursor: 'pointer',
+                  cursor: 'pointer'
                 }}
               >
                 Logout
               </button>
             </div>
             {/* Dashboard content */}
-            <div style={{marginTop: '4.8rem', padding: '2.2rem 3rem', width: '100%', flex: 1}}>
-              <h1 style={{ color: '#4caf50', fontSize: '2.4rem', marginBottom: '0.4rem' }}>
+            <div
+              style={{
+                marginTop: '4.8rem',
+                padding: '2.2rem 3rem',
+                width: '100%',
+                flex: 1
+              }}
+            >
+              <h1
+                style={{
+                  color: '#4caf50',
+                  fontSize: '2.4rem',
+                  marginBottom: '0.4rem'
+                }}
+              >
                 {activePortfolio ? activePortfolio.name : 'Portfolio Dashboard'}
               </h1>
-              <p style={{ opacity: 0.8 }}>Hello, {user.name.split(' ')[0]} — manage your stocks and simulate trades!</p>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr 2fr 1.5fr',
-                gap: '2rem',
-                marginTop: '2rem',
-                alignItems: 'start'
-              }}>
+              <p style={{ opacity: 0.8 }}>
+                Hello, {user.name.split(' ')[0]} — manage your stocks and
+                simulate trades!
+              </p>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '2fr 2fr 1.5fr',
+                  gap: '2rem',
+                  marginTop: '2rem',
+                  alignItems: 'start'
+                }}
+              >
                 {/* Stock and Calculator Section */}
                 <div>
-                  <div style={{
-                    backgroundColor: '#10291b',
-                    padding: '1.4rem',
-                    borderRadius: '10px',
-                    border: '1px solid #205f38',
-                    marginBottom: '2rem'
-                  }}>
+                  <div
+                    style={{
+                      backgroundColor: '#10291b',
+                      padding: '1.4rem',
+                      borderRadius: '10px',
+                      border: '1px solid #205f38',
+                      marginBottom: '2rem'
+                    }}
+                  >
                     <h2 style={{ color: '#7cf29b' }}>Add Stock Result</h2>
-                    <div style={{display: 'flex', gap: 12, alignItems:'flex-start'}}>
+                    <div
+                      style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}
+                    >
                       {/* Ticker Autocomplete */}
-                      <div style={{position: 'relative'}}>
+                      <div style={{ position: 'relative' }}>
                         <input
                           type="text"
                           placeholder="Ticker (Type company name)"
                           value={tickerQuery}
-                          onChange={e => { setTickerQuery(e.target.value); setShowSuggestions(true); }}
+                          onChange={e => {
+                            setTickerQuery(e.target.value)
+                            setShowSuggestions(true)
+                          }}
                           onFocus={() => setShowSuggestions(true)}
-                          onBlur={() => setTimeout(()=>setShowSuggestions(false),150)}
+                          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                           style={{
                             width: 170,
                             padding: '10px',
@@ -325,7 +503,8 @@ export default function LoginPage() {
                               boxShadow: '0 2px 12px #0009',
                               maxHeight: 180,
                               overflowY: 'auto'
-                            }}>
+                            }}
+                          >
                             {tickerSuggestions.map(sug => (
                               <div
                                 key={sug.symbol}
@@ -339,83 +518,187 @@ export default function LoginPage() {
                                   cursor: 'pointer'
                                 }}
                               >
-                                <span style={{fontWeight: 600}}>{sug.symbol}</span>
-                                {" "}
-                                <span style={{fontSize: '0.97em', color: '#a8d5ba'}}>{sug.name}</span>
+                                <span style={{ fontWeight: 600 }}>{sug.symbol}</span>{' '}
+                                <span
+                                  style={{
+                                    fontSize: '0.97em',
+                                    color: '#a8d5ba'
+                                  }}
+                                >
+                                  {sug.name}
+                                </span>
                               </div>
                             ))}
                           </div>
                         )}
                       </div>
+<<<<<<< Updated upstream
                       {/* Buy, Sell, Quantity, Add */}
                       <input type="date" placeholder="Buy" value={buy}
                         onChange={e => setBuy(e.target.value)}
+=======
+                      {/* Buy/Sell Dates, Quantity */}
+                      <input
+                        type="date"
+                        value={buyDate}
+                        onChange={e => setBuyDate(e.target.value)}
+>>>>>>> Stashed changes
                         style={{
-                          width: 70, padding: '10px', borderRadius: '6px',
+                          width: 130,
+                          padding: '8px 10px',
+                          borderRadius: '6px',
                           border: '1px solid #4caf50',
+<<<<<<< Updated upstream
                           backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
                         }}/>
                       <input type="date" placeholder="Sell" value={sell}
                         onChange={e => setSell(e.target.value)}
+=======
+                          backgroundColor: '#0c1a0f',
+                          color: '#c8facc',
+                          outline: 'none',
+                          fontSize: '1.08rem'
+                        }}
+                      />
+                      <input
+                        type="date"
+                        value={sellDate}
+                        onChange={e => setSellDate(e.target.value)}
+>>>>>>> Stashed changes
                         style={{
-                          width: 70, padding: '10px', borderRadius: '6px',
+                          width: 130,
+                          padding: '8px 10px',
+                          borderRadius: '6px',
                           border: '1px solid #4caf50',
-                          backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
-                        }}/>
-                      <input type="number" placeholder="Qty" value={qty}
+                          backgroundColor: '#0c1a0f',
+                          color: '#c8facc',
+                          outline: 'none',
+                          fontSize: '1.08rem'
+                        }}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Quantity"
+                        value={qty}
                         onChange={e => setQty(e.target.value)}
                         style={{
-                          width: 70, padding: '10px', borderRadius: '6px',
+                          width: 70,
+                          padding: '10px',
+                          borderRadius: '6px',
                           border: '1px solid #4caf50',
-                          backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
-                        }}/>
-                      <button onClick={handleCalculate} style={{
-                        padding: '10px 14px', backgroundColor: '#4caf50',
-                        color: 'black', borderRadius: '6px', border: 'none',
-                        fontWeight: 700, fontSize: '1.08rem', cursor: 'pointer'
-                      }}>Add</button>
+                          backgroundColor: '#0c1a0f',
+                          color: '#c8facc',
+                          outline: 'none',
+                          fontSize: '1.08rem'
+                        }}
+                      />
+                      <button
+                        onClick={handleCalculate}
+                        disabled={isLoadingPrice}
+                        style={{
+                          padding: '10px 14px',
+                          backgroundColor: '#4caf50',
+                          color: 'black',
+                          borderRadius: '6px',
+                          border: 'none',
+                          fontWeight: 700,
+                          fontSize: '1.08rem',
+                          cursor: 'pointer',
+                          opacity: isLoadingPrice ? 0.6 : 1,
+                          pointerEvents: isLoadingPrice ? 'none' : 'auto'
+                        }}
+                      >
+                        {isLoadingPrice ? 'Loading...' : 'Add'}
+                      </button>
                     </div>
-                    <div style={{
-                      marginTop: '1.2rem',
-                      padding: '0.65rem',
-                      borderRadius: '6px',
-                      backgroundColor: '#06110a',
-                      border: '1px dashed #4caf50',
-                      minHeight: 30,
-                      color: '#d9fdd3',
-                      fontSize: '1.12rem'
-                    }}>
-                      {calcResult && (<span>{calcResult}</span>)}
+                    <div
+                      style={{
+                        marginTop: '1.2rem',
+                        padding: '0.65rem',
+                        borderRadius: '6px',
+                        backgroundColor: '#06110a',
+                        border: '1px dashed #4caf50',
+                        minHeight: 30,
+                        color: '#d9fdd3',
+                        fontSize: '1.12rem'
+                      }}
+                    >
+                      {calcResult && <span>{calcResult}</span>}
                     </div>
                   </div>
                   {/* Holdings Table */}
-                  <div style={{
-                    backgroundColor: '#10291b',
-                    padding: '1rem',
-                    borderRadius: '10px',
-                    border: '1px solid #205f38',
-                  }}>
-                    <div style={{fontWeight: 600, color: '#7cf29b', fontSize: '1.12rem', marginBottom: 6}}>Portfolio Holdings</div>
-                    <table style={{width: '100%', color: 'inherit', fontSize: '1rem', borderSpacing: 0}}>
+                  <div
+                    style={{
+                      backgroundColor: '#10291b',
+                      padding: '1rem',
+                      borderRadius: '10px',
+                      border: '1px solid #205f38'
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        color: '#7cf29b',
+                        fontSize: '1.12rem',
+                        marginBottom: 6
+                      }}
+                    >
+                      Portfolio Holdings
+                    </div>
+                    <table
+                      style={{
+                        width: '100%',
+                        color: 'inherit',
+                        fontSize: '1rem',
+                        borderSpacing: 0
+                      }}
+                    >
                       <thead>
-                        <tr style={{color: '#86fac1', textAlign: 'left', fontWeight: 500}}>
+                        <tr
+                          style={{
+                            color: '#86fac1',
+                            textAlign: 'left',
+                            fontWeight: 500
+                          }}
+                        >
                           <th>Ticker</th>
                           <th>Qty</th>
+                          <th>Buy Date</th>
+                          <th>Sell Date</th>
+                          <th>Buy Price (₹)</th>
+                          <th>Sell Price (₹)</th>
                           <th>P/L (₹)</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {activePortfolio.stocks.map((s, i) =>
-                          <tr key={s.ticker + i} style={{background: i%2 ? '#0c1a0f' : 'none'}}>
+                        {activePortfolio.stocks.map((s, i) => (
+                          <tr
+                            key={s.ticker + i}
+                            style={{ background: i % 2 ? '#0c1a0f' : 'none' }}
+                          >
                             <td>{s.ticker}</td>
                             <td>{s.qty}</td>
-                            <td style={{color: s.pl>=0 ? '#61fd86' : '#ff1744'}}>{s.pl}</td>
+                            <td>{s.actualBuyDate ?? s.buyDate}</td>
+                            <td>{s.actualSellDate ?? s.sellDate}</td>
+                            <td>{s.buyPrice && s.buyPrice.toFixed(2)}</td>
+                            <td>{s.sellPrice && s.sellPrice.toFixed(2)}</td>
+                            <td
+                              style={{
+                                color: s.pl >= 0 ? '#61fd86' : '#ff1744'
+                              }}
+                            >
+                              {s.pl}
+                            </td>
                           </tr>
-                        )}
-                        <tr style={{fontWeight: 600, color: '#4caf50'}}>
+                        ))}
+                        <tr style={{ fontWeight: 600, color: '#4caf50' }}>
                           <td>Total</td>
-                          <td>{activePortfolio.stocks.reduce((a,s)=>a+s.qty,0)}</td>
-                          <td>{totalPL}</td>
+                          <td>{activePortfolio.stocks.reduce((a, s) => a + s.qty, 0)}</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>{totalPL.toFixed(2)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -423,31 +706,37 @@ export default function LoginPage() {
                 </div>
                 {/* Pie Chart */}
                 <div>
-                  <div style={{
-                    backgroundColor: '#10291b',
-                    padding: '1.5rem',
-                    borderRadius: '10px',
-                    border: '1px solid #205f38',
-                    minHeight: 350,
-                  }}>
-                    <div style={{
-                      color: '#7cf29b',
-                      fontSize: '1.25rem',
-                      fontWeight: 600,
-                      marginBottom: 18,
-                      textAlign: 'center'
-                    }}>
+                  <div
+                    style={{
+                      backgroundColor: '#10291b',
+                      padding: '1.5rem',
+                      borderRadius: '10px',
+                      border: '1px solid #205f38',
+                      minHeight: 350
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: '#7cf29b',
+                        fontSize: '1.25rem',
+                        fontWeight: 600,
+                        marginBottom: 18,
+                        textAlign: 'center'
+                      }}
+                    >
                       Portfolio Breakdown (P/L%)
                     </div>
                     <Pie data={chartData} />
                   </div>
                 </div>
                 {/* Filler column for more charts/extensions */}
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '2rem'
-                }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2rem'
+                  }}
+                >
                   {/* Add more chart panels here later if needed */}
                 </div>
               </div>

@@ -27,6 +27,11 @@ def ensure_default_portfolio(uid):
     if not result:
         execute(f"INSERT INTO portfolio (pid, pname, uid) VALUES (1, 'My First Portfolio', '{uid}');")
 
+def fetch_portfolios_for_user(uid):
+    query = f"SELECT pid, pname FROM portfolio WHERE uid = '{uid}';"
+    portfolios = fetch(query)
+    return portfolios
+
 def add_stock(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, quantity):
     execute(f"""
         insert into stock 

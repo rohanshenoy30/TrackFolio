@@ -40,6 +40,18 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: decoded.email, name: decoded.name })
       })
+
+      const data = await response.json()
+      if (Array.isArray(data.portfolios)) {
+        setPortfolios(
+          data.portfolios.map(p => ({
+            id: p.pid,
+            name: p.pname,
+            stocks: []
+          }))
+        )
+        if (data.portfolios.length) setActivePortfolioId(data.portfolios[0].pid)
+      }
     }
   }
   const onError = () => alert('Login Failed')

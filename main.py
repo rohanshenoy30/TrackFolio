@@ -51,5 +51,7 @@ async def login(user_info: dict):
         conn.rollback()
         print("❌ DB error:", e)
 
+    portfolios = backend.fetch_portfolios_for_user(name)
+    portfolios_list = [{"pid": p[0], "pname": p[1]} for p in portfolios]
     
-    return {"message": f"User {name} with email {email} logged in successfully."}
+    return {"message": f"User {name} with email {email} logged in successfully.", "portfolios": portfolios_list}

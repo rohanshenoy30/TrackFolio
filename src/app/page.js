@@ -4,6 +4,8 @@ import React, { useState } from 'react'
 import { GoogleLogin } from '@react-oauth/google'
 import { Pie } from 'react-chartjs-2'
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js'
+import './main.css'
+
 Chart.register(ArcElement, Tooltip, Legend)
 
 export default function LoginPage() {
@@ -13,6 +15,7 @@ export default function LoginPage() {
     { id: 1, name: 'My First Portfolio', stocks: [] }
   ])
   const [activePortfolioId, setActivePortfolioId] = useState(1)
+  const [holdings, setHoldings] = useState([]);
   // Ticker suggestion/autocomplete
   const [tickerQuery, setTickerQuery] = useState('')
   const [tickerSuggestions, setTickerSuggestions] = useState([])
@@ -130,28 +133,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main
-      style={{
-        height: '100vh',
-        background: 'linear-gradient(180deg, #111, #00210f 95%)',
-        color: '#a8d5ba',
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        overflow: 'hidden',
-        position: 'relative'
-      }}>
+    <main className="main-back">
       {!user ? (
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #0f5132, #003d1a)',
-            padding: '3rem 4rem',
-            borderRadius: '15px',
-            boxShadow: '0 8px 25px rgba(0, 64, 21, 0.6)',
-            textAlign: 'center',
-            position: 'absolute',
-            left: '50%',
-            top: '38%',
-            transform: 'translate(-50%, -50%)'
-          }}>
+        <div className='login-card'>
           <h1 style={{ color: '#4caf50', fontSize: '2.5rem', marginBottom: '0.5rem' }}>
             Welcome to Trackfolio
           </h1>
@@ -165,18 +149,7 @@ export default function LoginPage() {
           {/* -------------- SIDEBAR --------------- */}
           <div>
             {/* Hamburger (menu lines) */}
-            <div
-              style={{
-                position: 'absolute',
-                top: '25px',
-                left: '30px',
-                zIndex: 100,
-                cursor: 'pointer'
-              }}
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              tabIndex={0}
-              aria-label="Open sidebar"
-            >
+            <div className='Ham-symbol' onClick={() => setSidebarOpen(!sidebarOpen)} tabIndex={0} aria-label="Open sidebar">
               <div style={{ width: 35, height: 5, background: '#4caf50', borderRadius: 2, marginBottom: 6 }}/>
               <div style={{ width: 25, height: 5, background: '#4caf50', borderRadius: 2, marginBottom: 6 }}/>
               <div style={{ width: 20, height: 5, background: '#4caf50', borderRadius: 2 }}/>
@@ -199,20 +172,7 @@ export default function LoginPage() {
               }}
             >
               <div style={{marginBottom: '1.7rem', fontWeight: 600, color: '#7cf29b', fontSize: '1.2rem', letterSpacing: '1.3px'}}>PORTFOLIOS</div>
-              <button
-                onClick={handleCreatePortfolio}
-                style={{
-                  padding: '9px 0',
-                  marginBottom: '1.5rem',
-                  border: 'none',
-                  background: '#4caf50',
-                  color: '#00210f',
-                  borderRadius: 6,
-                  fontWeight: 700,
-                  fontSize: '1rem',
-                  cursor: 'pointer'
-                }}
-              >+ Create Portfolio</button>
+              <button className='create-portfolio-button' onClick={handleCreatePortfolio}>+ Create Portfolio</button>
               <div style={{flex: 1, overflowY: 'auto'}}>
                 {portfolios.map((p) => (
                   <div key={p.id}
@@ -265,18 +225,8 @@ export default function LoginPage() {
                 }}
                 title="Profile"
               />
-              <button
-                onClick={() => setUser(null)}
-                style={{
-                  backgroundColor: '#4caf50',
-                  border: 'none',
-                  color: 'black',
-                  borderRadius: '20px',
-                  padding: '8px 18px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                }}
-              >
+              <button className='logout'
+                onClick={() => setUser(null)} >
                 Logout
               </button>
             </div>
@@ -286,13 +236,7 @@ export default function LoginPage() {
                 {activePortfolio ? activePortfolio.name : 'Portfolio Dashboard'}
               </h1>
               <p style={{ opacity: 0.8 }}>Hello, {user.name.split(' ')[0]} — manage your stocks and simulate trades!</p>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr 2fr 1.5fr',
-                gap: '2rem',
-                marginTop: '2rem',
-                alignItems: 'start'
-              }}>
+              <div className='breakdown'>
                 {/* Stock and Calculator Section */}
                 <div>
                   <div style={{
@@ -313,31 +257,10 @@ export default function LoginPage() {
                           onChange={e => { setTickerQuery(e.target.value); setShowSuggestions(true); }}
                           onFocus={() => setShowSuggestions(true)}
                           onBlur={() => setTimeout(()=>setShowSuggestions(false),150)}
-                          style={{
-                            width: 170,
-                            padding: '10px',
-                            borderRadius: '6px',
-                            border: '1px solid #4caf50',
-                            backgroundColor: '#0c1a0f',
-                            color: '#c8facc',
-                            outline: 'none',
-                            fontSize: '1.08rem'
-                          }}
+                          className='ticker-input'
                         />
                         {showSuggestions && tickerSuggestions.length > 0 && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              zIndex: 10,
-                              top: 42,
-                              left: 0,
-                              right: 0,
-                              background: '#1a2b1f',
-                              borderRadius: 6,
-                              boxShadow: '0 2px 12px #0009',
-                              maxHeight: 180,
-                              overflowY: 'auto'
-                            }}>
+                          <div className='suggest'>
                             {tickerSuggestions.map(sug => (
                               <div
                                 key={sug.symbol}
@@ -360,45 +283,16 @@ export default function LoginPage() {
                         )}
                       </div>
                       {/* Buy, Sell, Quantity, Add */}
-                      <input type="date" placeholder="Buy" value={buy}
-                        onChange={e => setBuy(e.target.value)}
-                        style={{
-                          width: 180, padding: '10px', borderRadius: '6px',
-                          border: '1px solid #4caf50',
-                          backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
-                        }}/>
-                      <input type="date" placeholder="Sell" value={sell}
-                        onChange={e => setSell(e.target.value)}
-                        style={{
-                          width: 180, padding: '10px', borderRadius: '6px',
-                          border: '1px solid #4caf50',
-                          backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
-                        }}/>
-                      <input type="number" placeholder="Qty" value={qty}
-                        onChange={e => setQty(e.target.value)}
-                        style={{
-                          width: 70, padding: '10px', borderRadius: '6px',
-                          border: '1px solid #4caf50',
-                          backgroundColor: '#0c1a0f', color: '#c8facc', outline: 'none', fontSize: '1.08rem'
-                        }}/>
+                      <input className='card-inp' type="date" placeholder="Buy" value={buy} onChange={e => setBuy(e.target.value)}/>
+                      <input type="date" placeholder="Sell" value={sell} onChange={e => setSell(e.target.value)} className='card-inp'/>
+                      <input type="number" placeholder="Qty" value={qty} onChange={e => setQty(e.target.value)} className='card-inp'/>
                       <button onClick={handleCalculate} style={{
                         padding: '10px 14px', backgroundColor: '#4caf50',
                         color: 'black', borderRadius: '6px', border: 'none',
                         fontWeight: 700, fontSize: '1.08rem', cursor: 'pointer'
                       }}>Add</button>
                     </div>
-                    <div style={{
-                      marginTop: '1.2rem',
-                      padding: '0.65rem',
-                      borderRadius: '6px',
-                      backgroundColor: '#06110a',
-                      border: '1px dashed #4caf50',
-                      minHeight: 30,
-                      color: '#d9fdd3',
-                      fontSize: '1.12rem'
-                    }}>
-                      {calcResult && (<span>{calcResult}</span>)}
-                    </div>
+                    <div className='resp'> {calcResult && (<span>{calcResult}</span>)} </div>
                   </div>
                   {/* Holdings Table */}
                   <div style={{

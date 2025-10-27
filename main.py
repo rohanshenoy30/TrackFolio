@@ -6,6 +6,7 @@ import backend
 from fastapi import FastAPI, HTTPException
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from fastapi import Query
 
 origins = [
     "http://localhost:3000",
@@ -55,3 +56,29 @@ async def login(user_info: dict):
     portfolios_list = [{"pid": p[0], "pname": p[1]} for p in portfolios]
     
     return {"message": f"User {name} with email {email} logged in successfully.", "portfolios": portfolios_list}
+
+@app.get("/api/portfolio_stocks")
+def get_portfolio_stocks(portfolio_id: int = Query(..., alias="pid")):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT ticker, quantity, buy_date, sell_date FROM stock WHERE pid = %s",
+        (portfolio_id,)
+    )
+    rows = cursor.fetchall()
+    cursor.close()
+
+    if rows is None:
+        raise HTTPException(status_code=404, detail="Portfolio not found or no stocks")
+
+    stocks = []
+    for row in rows:
+        stocks.append({
+            "ticker": row[0],
+            "qty": row[1],
+            "buy_date": row[2],
+            "sell_date": row[3],
+            "pl": 1
+        })
+    return stocks

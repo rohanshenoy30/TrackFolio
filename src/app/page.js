@@ -16,6 +16,8 @@ export default function LoginPage() {
   ])
   const [activePortfolioId, setActivePortfolioId] = useState(1)
   const [holdings, setHoldings] = useState([]);
+  const [stocksChanged, setStocksChanged] = useState(false);
+
   // Ticker suggestion/autocomplete
   const [tickerQuery, setTickerQuery] = useState('')
   const [tickerSuggestions, setTickerSuggestions] = useState([])
@@ -107,6 +109,7 @@ export default function LoginPage() {
         portfolio_id: activePortfolioId
       })
     })
+    setStocksChanged(prev => !prev);
     
     setPortfolios(portfolios.map(p =>
       p.id === activePortfolioId
@@ -115,6 +118,18 @@ export default function LoginPage() {
     // clear form
     setTickerQuery(''); setBuy(''); setSell(''); setQty('')
   }
+
+  React.useEffect(() => {
+    if (activePortfolioId) {
+      fetch(`/api/portfolio_stocks?pid=${activePortfolioId}`)
+        .then(res => res.json())
+        .then(data => { setHoldings(Array.isArray(data) ? data : []); })
+        .catch(() => setHoldings([]));
+    } else {
+      setHoldings([]);
+    }
+  }, [activePortfolioId, stocksChanged]);
+
 
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId) || { stocks: [] }
   const totalPL = activePortfolio.stocks.reduce((a, s) => a + s.pl, 0)
@@ -311,7 +326,7 @@ export default function LoginPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {activePortfolio.stocks.map((s, i) =>
+                        {holdings.map((s, i) =>
                           <tr key={s.ticker + i} style={{background: i%2 ? '#0c1a0f' : 'none'}}>
                             <td>{s.ticker}</td>
                             <td>{s.qty}</td>
@@ -320,8 +335,8 @@ export default function LoginPage() {
                         )}
                         <tr style={{fontWeight: 600, color: '#4caf50'}}>
                           <td>Total</td>
-                          <td>{activePortfolio.stocks.reduce((a,s)=>a+s.qty,0)}</td>
-                          <td>{totalPL}</td>
+                          <td>{holdings.reduce((a,s)=>a+s.qty,0)}</td>
+                          <td>{holdings.reduce((a,s)=>a+s.pl,0)}</td>
                         </tr>
                       </tbody>
                     </table>

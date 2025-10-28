@@ -81,7 +81,7 @@ def get_portfolio_stocks(portfolio_id: int = Query(..., alias="pid"), user_id: s
             "qty": row[1],
             "buy_date": row[2],
             "sell_date": row[3],
-            "pl": pl
+            "pl": pl * row[1]
         })
 
     return stocks

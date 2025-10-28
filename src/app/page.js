@@ -2,19 +2,18 @@
 
 import React, { useState } from 'react'
 import { GoogleLogin } from '@react-oauth/google'
-import { Pie } from 'react-chartjs-2'
 import { Chart, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title} from 'chart.js'
 import './main.css'
 import { Bar } from 'react-chartjs-2'
+import {onSuccess, onError} from './login'
+import {createPortfolio} from './portfolio'
 
 Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title,)
 
 export default function LoginPage() {
   const [user, setUser] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [portfolios, setPortfolios] = useState([
-    { id: 1, name: 'My First Portfolio', stocks: [] }
-  ])
+  const [portfolios, setPortfolios] = useState([{ id: 1, name: 'My First Portfolio', stocks: [] }])
   const [activePortfolioId, setActivePortfolioId] = useState(1)
   const [holdings, setHoldings] = useState([]);
   const [stocksChanged, setStocksChanged] = useState(false);
@@ -27,40 +26,6 @@ export default function LoginPage() {
   const [buy, setBuy] = useState('')
   const [sell, setSell] = useState('')
   const [qty, setQty] = useState('')
-  const [calcResult, setCalcResult] = useState(null)
-
-  const onSuccess = async (credentialResponse) => {
-    if (credentialResponse.credential) {
-      const mod = await import('jwt-decode')
-      const jwtDecode = mod.jwtDecode || mod.default
-      if (!jwtDecode || typeof jwtDecode !== 'function') {
-        throw new Error('jwt-decode decode function not found in module')
-      }
-      const decoded = jwtDecode(credentialResponse.credential)
-      setUser(decoded)
-      
-      console.log(decoded.email, decoded.name)
-
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: decoded.email, name: decoded.name })
-      })
-
-      const data = await response.json()
-      if (Array.isArray(data.portfolios)) {
-        setPortfolios(
-          data.portfolios.map(p => ({
-            id: p.pid,
-            name: p.pname,
-            stocks: []
-          }))
-        )
-        if (data.portfolios.length) setActivePortfolioId(data.portfolios[0].pid)
-      }
-    }
-  }
-  const onError = () => alert('Login Failed')
 
   // Use the proxy route!
   const fetchSuggestions = async (query) => {
@@ -79,46 +44,22 @@ export default function LoginPage() {
       setTickerSuggestions([])
     }
   }
-
+  
   React.useEffect(() => {
     const handler = setTimeout(() => { fetchSuggestions(tickerQuery); }, 300)
     return () => clearTimeout(handler)
   }, [tickerQuery])
-
+  
+  const handleSuccess = (credentialResponse) => {
+    onSuccess(credentialResponse, setUser, setPortfolios, setActivePortfolioId);
+  };
   const handleCreatePortfolio = async () => {
-    const name = prompt("Enter portfolio name:");
-    if (!name) return;
-
-    try {
-      const response = await fetch('/api/create_portfolio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pname: name, uid: user?.name })  // include user info if needed
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create portfolio');
-      }
-
-      const data = await response.json();
-
-      if (data.pid && data.pname) {
-        // Update local portfolios state to include newly created portfolio
-        setPortfolios(prev => [...prev, { id: data.pid, name: data.pname, stocks: [] }]);
-        setActivePortfolioId(data.pid);
-        setSidebarOpen(false);
-      } else {
-        throw new Error('Invalid response from server');
-      }
-    } catch (e) {
-      alert(`Error creating portfolio: ${e.message}`);
-    }
+    createPortfolio(setPortfolios, setActivePortfolioId, setSidebarOpen)
   };
 
   const handleCalculate = async() => {
-    if (!tickerQuery || !buy || !sell || !qty) return setCalcResult('Fill all fields!')
+    if (!tickerQuery || !buy || !sell || !qty) return
     const profitLoss = ((sell - buy) * qty)
-    setCalcResult(`Return: ₹${profitLoss.toLocaleString()} (${profitLoss >= 0 ? 'Profit' : 'Loss'})`)
     console.log("Added Stock")
     await fetch('/api/add_stock', {
       method: 'POST',
@@ -155,20 +96,6 @@ export default function LoginPage() {
 
 
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId) || { stocks: [] }
-  const totalPL = activePortfolio.stocks.reduce((a, s) => a + s.pl, 0)
-
-  // Chart data
-  const chartData = {
-    labels: holdings.map(s => s.ticker),
-    datasets: [{
-      data: holdings.map(s => s.pl),  // Use P/L from backend directly
-      backgroundColor: [
-        '#61fd86', '#32ffc8', '#00b876', '#2196f3', '#fcff32', '#ff6f00', '#ff1744', '#651fff'
-      ],
-      borderWidth: 2,
-      borderColor: '#0a0a0a'
-    }]
-  };
 
   const barChartData = {
     labels: holdings.map(s => s.ticker),
@@ -207,7 +134,7 @@ export default function LoginPage() {
           <p style={{ color: '#c8facc', fontSize: '1.15rem', marginBottom: '2rem' }}>
             Track your portfolio like a pro.
           </p>
-          <GoogleLogin onSuccess={onSuccess} onError={onError} />
+          <GoogleLogin onSuccess={handleSuccess} onError={onError} />
         </div>
       ) : (
         <div style={{ display: 'flex', height: '100vh' }}>
@@ -357,7 +284,6 @@ export default function LoginPage() {
                         fontWeight: 700, fontSize: '1.08rem', cursor: 'pointer'
                       }}>Add</button>
                     </div>
-                    <div className='resp'> {calcResult && (<span>{calcResult}</span>)} </div>
                   </div>
                   {/* Holdings Table */}
                   <div style={{
@@ -410,7 +336,6 @@ export default function LoginPage() {
                     }}>
                       Portfolio Breakdown (P/L%)
                     </div>
-                    <Pie data={chartData} />
                     <div style={{
                       backgroundColor: '#10291b',
                       padding: '1.5rem',

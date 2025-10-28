@@ -106,7 +106,8 @@ export default function LoginPage() {
         buy_date: buy,
         sell_date: sell,
         quantity: Number(qty),
-        portfolio_id: activePortfolioId
+        portfolio_id: activePortfolioId,
+        uid : user?.name
       })
     })
     setStocksChanged(prev => !prev);
@@ -121,14 +122,14 @@ export default function LoginPage() {
 
   React.useEffect(() => {
     if (activePortfolioId) {
-      fetch(`/api/portfolio_stocks?pid=${activePortfolioId}`)
+      fetch(`/api/portfolio_stocks?pid=${activePortfolioId}&uid=${user?.name}`)
         .then(res => res.json())
         .then(data => { setHoldings(Array.isArray(data) ? data : []); })
         .catch(() => setHoldings([]));
     } else {
       setHoldings([]);
     }
-  }, [activePortfolioId, stocksChanged]);
+  }, [activePortfolioId, stocksChanged, user]);
 
 
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId) || { stocks: [] }
@@ -136,16 +137,16 @@ export default function LoginPage() {
 
   // Chart data
   const chartData = {
-    labels: activePortfolio.stocks.map(s => s.ticker),
+    labels: holdings.map(s => s.ticker),
     datasets: [{
-      data: activePortfolio.stocks.map(s => s.pl),
+      data: holdings.map(s => s.pl),  // Use P/L from backend directly
       backgroundColor: [
         '#61fd86', '#32ffc8', '#00b876', '#2196f3', '#fcff32', '#ff6f00', '#ff1744', '#651fff'
       ],
       borderWidth: 2,
       borderColor: '#0a0a0a'
     }]
-  }
+  };
 
   return (
     <main className="main-back">

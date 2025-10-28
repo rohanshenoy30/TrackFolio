@@ -12,13 +12,15 @@ create table if not exists portfolio (
 	uid varchar(255) references tf_user(uid)
 );
 
-create table if not exists stock (
-	pid integer references portfolio (pid),
-	ticker varchar(255),
-	buy_date timestamp,
-	sell_date timestamp, 
-	quantity integer,
-	primary key(pid, ticker, buy_date, sell_date)
+CREATE TABLE IF NOT EXISTS stock (
+    uid VARCHAR(255) NOT NULL,
+    pid INTEGER NOT NULL,
+    ticker VARCHAR(255) NOT NULL,
+    buy_date TIMESTAMP,
+    sell_date TIMESTAMP, 
+    quantity INTEGER,
+    PRIMARY KEY (uid, pid, ticker),
+    FOREIGN KEY (uid, pid) REFERENCES portfolio (uid, pid)
 );
 
 commit;

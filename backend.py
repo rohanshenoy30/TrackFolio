@@ -8,14 +8,30 @@ print("connecting to DB")
 conn = get_db_connection()
 cursor = conn.cursor()
 
-def execute(query : str):
-    cursor.execute(query)
-    conn.commit()
+def execute(query: str):
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Database error: {e}")
+        raise
+    finally:
+        cursor.close()
 
 def fetch(query: str):
-    cursor.execute(query)
-    result = cursor.fetchall()
-    return result
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        return rows
+    except Exception as e:
+        conn.rollback()
+        print(f"Database error: {e}")
+        raise
+    finally:
+        cursor.close()
 
 def add_user(user_id):
     user_exists = fetch(f"SELECT uid FROM tf_user WHERE uid = '{user_id}';")
@@ -32,7 +48,7 @@ def fetch_portfolios_for_user(uid):
     portfolios = fetch(query)
     return portfolios
 
-def add_stock(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, quantity):
+def add_stock(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, quantity,uid : str):
     execute(f"""
         insert into stock 
         values (
@@ -40,7 +56,8 @@ def add_stock(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, q
             \'{ticker}\', 
             \'{buy_date}\', 
             \'{sell_date}\', 
-            {quantity}
+            {quantity},
+            \'{uid}'
         );
     """)
 

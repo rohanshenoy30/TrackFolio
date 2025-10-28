@@ -7,3 +7,4 @@ class StockCreate(BaseModel):
     sell_date: date
     quantity: int
     portfolio_id: int
+    uid: str

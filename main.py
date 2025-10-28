@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from fastapi import Query
+from finance import fetch_and_print_prices
 
 origins = [
     "http://localhost:3000",
@@ -27,7 +28,7 @@ def add_stock(stock: StockCreate):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        backend.add_stock(stock.portfolio_id, stock.ticker, stock.buy_date, stock.sell_date, stock.quantity)
+        backend.add_stock(stock.portfolio_id, stock.ticker, stock.buy_date, stock.sell_date, stock.quantity, stock.uid)
         print("✅ Commit successful")
     except Exception as e:
         conn.rollback()
@@ -58,13 +59,13 @@ async def login(user_info: dict):
     return {"message": f"User {name} with email {email} logged in successfully.", "portfolios": portfolios_list}
 
 @app.get("/api/portfolio_stocks")
-def get_portfolio_stocks(portfolio_id: int = Query(..., alias="pid")):
+def get_portfolio_stocks(portfolio_id: int = Query(..., alias="pid"), user_id: str = Query(..., alias="uid")):
     conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute(
-        "SELECT ticker, quantity, buy_date, sell_date FROM stock WHERE pid = %s",
-        (portfolio_id,)
+        "SELECT ticker, quantity, buy_date, sell_date FROM stock WHERE pid = %s AND uid = %s",
+        (portfolio_id, user_id)  # Replace with actual variables
     )
     rows = cursor.fetchall()
     cursor.close()
@@ -81,4 +82,6 @@ def get_portfolio_stocks(portfolio_id: int = Query(..., alias="pid")):
             "sell_date": row[3],
             "pl": 1
         })
+        fetch_and_print_prices(row[0], row[2], row[3])
+
     return stocks

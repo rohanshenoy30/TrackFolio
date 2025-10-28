@@ -28,7 +28,7 @@ def add_stock(stock: StockCreate):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        backend.add_stock(stock.portfolio_id, stock.ticker, stock.buy_date, stock.sell_date, stock.quantity, stock.uid)
+        backend.add_stock(stock.portfolio_id, stock.ticker, stock.buy_date, stock.sell_date, stock.quantity, stock.uid, conn, cur)
         print("✅ Commit successful")
     except Exception as e:
         conn.rollback()
@@ -46,14 +46,14 @@ async def login(user_info: dict):
     name = user_info.get('name')
 
     try:
-        backend.add_user(name)
-        backend.ensure_default_portfolio(name)
+        backend.add_user(name, conn, cur)
+        backend.ensure_default_portfolio(name, conn, cur)
         print("✅ Commit successful")
     except Exception as e:
         conn.rollback()
         print("❌ DB error:", e)
 
-    portfolios = backend.fetch_portfolios_for_user(name)
+    portfolios = backend.fetch_portfolios_for_user(name, conn, cur)
     portfolios_list = [{"pid": p[0], "pname": p[1]} for p in portfolios]
     
     return {"message": f"User {name} with email {email} logged in successfully.", "portfolios": portfolios_list}
@@ -65,7 +65,7 @@ def get_portfolio_stocks(portfolio_id: int = Query(..., alias="pid"), user_id: s
 
     cursor.execute(
         "SELECT ticker, quantity, buy_date, sell_date FROM stock WHERE pid = %s AND uid = %s",
-        (portfolio_id, user_id)  # Replace with actual variables
+        (portfolio_id, user_id)
     )
     rows = cursor.fetchall()
     cursor.close()
@@ -75,13 +75,38 @@ def get_portfolio_stocks(portfolio_id: int = Query(..., alias="pid"), user_id: s
 
     stocks = []
     for row in rows:
+        pl = fetch_and_print_prices(row[0], row[2], row[3])
         stocks.append({
             "ticker": row[0],
             "qty": row[1],
             "buy_date": row[2],
             "sell_date": row[3],
-            "pl": 1
+            "pl": pl
         })
-        fetch_and_print_prices(row[0], row[2], row[3])
 
     return stocks
+
+from fastapi import Body
+
+@app.post("/api/create_portfolio")
+def create_portfolio(portfolio: dict = Body(...)):
+    pname = portfolio.get('pname')
+    uid = portfolio.get('uid')
+
+    if not pname or not uid:
+        raise HTTPException(status_code=400, detail="Missing pname or uid")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO portfolio (pname, uid) VALUES (%s, %s) RETURNING pid, pname",
+        (pname, uid)
+    )
+    new_portfolio = cursor.fetchone()
+    conn.commit()
+    cursor.close()
+
+    if new_portfolio:
+        return {"pid": new_portfolio[0], "pname": new_portfolio[1]}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to create portfolio")

@@ -4,11 +4,8 @@ from datetime import datetime
 from database import get_db_connection
 from schemas import StockCreate
 
-print("connecting to DB")
-conn = get_db_connection()
-cursor = conn.cursor()
 
-def execute(query: str):
+def execute(query: str, conn, cur):
     try:
         cursor = conn.cursor()
         cursor.execute(query)
@@ -18,9 +15,12 @@ def execute(query: str):
         print(f"Database error: {e}")
         raise
     finally:
-        cursor.close()
+        if cursor is not None:
+            cursor.close()
+        if conn is not None:
+            conn.close()
 
-def fetch(query: str):
+def fetch(query: str, conn, cur):
     try:
         cursor = conn.cursor()
         cursor.execute(query)
@@ -31,24 +31,27 @@ def fetch(query: str):
         print(f"Database error: {e}")
         raise
     finally:
-        cursor.close()
+        if cursor is not None:
+            cursor.close()
+        if conn is not None:
+            conn.close()
 
-def add_user(user_id):
+def add_user(user_id, conn, cur):
     user_exists = fetch(f"SELECT uid FROM tf_user WHERE uid = '{user_id}';")
     if not user_exists:
-        execute(f"INSERT INTO tf_user VALUES ('{user_id}');")
+        execute(f"INSERT INTO tf_user VALUES ('{user_id}');", conn, cur)
 
-def ensure_default_portfolio(uid):
+def ensure_default_portfolio(uid, conn, cur):
     result = fetch(f"SELECT pid FROM portfolio WHERE pid = 1 AND uid = '{uid}';")
     if not result:
-        execute(f"INSERT INTO portfolio (pid, pname, uid) VALUES (1, 'My First Portfolio', '{uid}');")
+        execute(f"INSERT INTO portfolio (pid, pname, uid) VALUES (1, 'My First Portfolio', '{uid}');", conn, cur)
 
-def fetch_portfolios_for_user(uid):
+def fetch_portfolios_for_user(uid, conn, cur):
     query = f"SELECT pid, pname FROM portfolio WHERE uid = '{uid}';"
-    portfolios = fetch(query)
+    portfolios = fetch(query, conn, cur)
     return portfolios
 
-def add_stock(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, quantity,uid : str):
+def add_stock(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, quantity,uid : str, conn, cur):
     execute(f"""
         insert into stock 
         values (
@@ -59,7 +62,7 @@ def add_stock(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, q
             {quantity},
             \'{uid}'
         );
-    """)
+    """, conn, cur)
 
 def remove_stock_by_attributes(portfolio_id, ticker, buy_date : datetime, sell_date : datetime):
     execute(f"""
@@ -143,7 +146,7 @@ def rename_portfolio(id, name):
         where pid = {id};
     """)
 
-def get_portfolio_list(user_id):
+def get_portfolio_list(user_id, conn, cursor):
     execute(f"""
         select * 
         from portfolio
@@ -171,5 +174,5 @@ def get_portfolio_list(user_id):
 
     return portfolio_list
 
-def close_connection():
+def close_connection(conn):
     conn.close()

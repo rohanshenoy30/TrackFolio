@@ -3,10 +3,11 @@
 import React, { useState } from 'react'
 import { GoogleLogin } from '@react-oauth/google'
 import { Pie } from 'react-chartjs-2'
-import { Chart, ArcElement, Tooltip, Legend } from 'chart.js'
+import { Chart, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title} from 'chart.js'
 import './main.css'
+import { Bar } from 'react-chartjs-2'
 
-Chart.register(ArcElement, Tooltip, Legend)
+Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title,)
 
 export default function LoginPage() {
   const [user, setUser] = useState(null)
@@ -84,14 +85,35 @@ export default function LoginPage() {
     return () => clearTimeout(handler)
   }, [tickerQuery])
 
-  const handleCreatePortfolio = () => {
-    const name = prompt("Enter portfolio name:")
-    if (!name) return
-    const id = portfolios.length ? Math.max(...portfolios.map(p=>p.id)) + 1 : 1
-    setPortfolios([...portfolios, { id, name, stocks: [] }])
-    setActivePortfolioId(id)
-    setSidebarOpen(false)
-  }
+  const handleCreatePortfolio = async () => {
+    const name = prompt("Enter portfolio name:");
+    if (!name) return;
+
+    try {
+      const response = await fetch('/api/create_portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pname: name, uid: user?.name })  // include user info if needed
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create portfolio');
+      }
+
+      const data = await response.json();
+
+      if (data.pid && data.pname) {
+        // Update local portfolios state to include newly created portfolio
+        setPortfolios(prev => [...prev, { id: data.pid, name: data.pname, stocks: [] }]);
+        setActivePortfolioId(data.pid);
+        setSidebarOpen(false);
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (e) {
+      alert(`Error creating portfolio: ${e.message}`);
+    }
+  };
 
   const handleCalculate = async() => {
     if (!tickerQuery || !buy || !sell || !qty) return setCalcResult('Fill all fields!')
@@ -146,6 +168,33 @@ export default function LoginPage() {
       borderWidth: 2,
       borderColor: '#0a0a0a'
     }]
+  };
+
+  const barChartData = {
+    labels: holdings.map(s => s.ticker),
+    datasets: [{
+      label: 'Profit/Loss (₹)',
+      data: holdings.map(s => s.pl),
+      backgroundColor: holdings.map(s => s.pl >= 0 ? '#61fd86' : '#ff1744'),  // green/red
+      borderWidth: 1,
+    }]
+  };
+
+  const barChartOptions = {
+    indexAxis: 'y',   // horizontal bars
+    responsive: true,
+    scales: {
+      x: {
+        beginAtZero: true
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      title: {
+        display: true,
+        text: 'Profit and Loss per Stock'
+      }
+    }
   };
 
   return (
@@ -362,6 +411,16 @@ export default function LoginPage() {
                       Portfolio Breakdown (P/L%)
                     </div>
                     <Pie data={chartData} />
+                    <div style={{
+                      backgroundColor: '#10291b',
+                      padding: '1.5rem',
+                      borderRadius: '10px',
+                      border: '1px solid #205f38',
+                      minHeight: 350,
+                      marginTop: '1.5rem'
+                    }}>
+                      <Bar data={barChartData} options={barChartOptions} />
+                    </div>
                   </div>
                 </div>
               </div>

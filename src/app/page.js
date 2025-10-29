@@ -6,7 +6,6 @@ import { Chart, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElem
 import './main.css'
 import { Bar } from 'react-chartjs-2'
 import {onSuccess, onError} from './login'
-import {createPortfolio, PortfolioHoldings} from './portfolio'
 
 Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title,)
 
@@ -121,6 +120,55 @@ export default function LoginPage() {
         display: true,
         text: 'Profit and Loss per Stock'
       }
+    }
+  };
+
+  const createPortfolio = async (setPortfolios, setActivePortfolioId, setSidebarOpen) => {
+    const name = prompt("Enter portfolio name:");
+    if (!name) return;
+
+    try {
+      const response = await fetch('/api/create_portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pname: name, uid: user?.name })  // include user info if needed
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create portfolio');
+      }
+
+      const data = await response.json();
+
+      if (data.pid && data.pname) {
+        // Update local portfolios state to include newly created portfolio
+        setPortfolios(prev => [...prev, { id: data.pid, name: data.pname, stocks: [] }]);
+        setActivePortfolioId(data.pid);
+        setSidebarOpen(false);
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (e) {
+      alert(`Error creating portfolio: ${e.message}`);
+    }
+  };
+
+  const removeStock = async ({ ticker, uid, portfolio_id }) => {
+    try {
+      const response = await fetch('/api/remove_stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker, uid, portfolio_id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove stock');
+      }
+
+      // After successful removal, trigger refetch by toggling a state or using existing dependencies
+      setStocksChanged(prev => !prev); // assuming you use this to trigger data fetch
+    } catch (error) {
+      alert(`Error removing stock: ${error.message}`);
     }
   };
 
@@ -285,7 +333,55 @@ export default function LoginPage() {
                       }}>Add</button>
                     </div>
                   </div>
-                  <PortfolioHoldings holdings={holdings}/>
+                  <div style={{
+                    backgroundColor: '#10291b',
+                    padding: '1rem',
+                    borderRadius: '10px',
+                    border: '1px solid #205f38',
+                  }}>
+                    <div style={{fontWeight: 600, color: '#7cf29b', fontSize: '1.12rem', marginBottom: 6}}>Portfolio Holdings</div>
+                    <table style={{width: '100%', color: 'inherit', fontSize: '1rem', borderSpacing: 0}}>
+                      <thead>
+                        <tr style={{color: '#86fac1', textAlign: 'left', fontWeight: 500}}>
+                          <th>Ticker</th>
+                          <th>Qty</th>
+                          <th>P/L (₹)</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {holdings.map((s, i) =>
+                          <tr key={s.ticker + i} style={{background: i%2 ? '#0c1a0f' : 'none'}}>
+                            <td>{s.ticker}</td>
+                            <td>{s.qty}</td>
+                            <td style={{color: s.pl>=0 ? '#61fd86' : '#ff1744'}}>{s.pl}</td>
+                            <td>
+                              <button
+                                onClick={() => removeStock({ ticker: s.ticker, uid: user.name, portfolio_id: activePortfolioId })}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#ff1744',
+                                  cursor: 'pointer',
+                                  fontWeight: 'bold',
+                                  fontSize: '1.2rem',
+                                }}
+                                aria-label={`Remove ${s.ticker}`}
+                                title="Remove stock"
+                              >
+                                &times;
+                              </button>
+                            </td>
+                          </tr>
+                        )}
+                        <tr style={{fontWeight: 600, color: '#4caf50'}}>
+                          <td>Total</td>
+                          <td>{holdings.reduce((a,s)=>a+s.qty,0)}</td>
+                          <td>{holdings.reduce((a,s)=>a+s.pl,0)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
                 <div>
                   <div style={{

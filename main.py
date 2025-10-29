@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from schemas import StockCreate
+from schemas import StockCreate, StockRemove
 from database import get_db_connection
 from fastapi.middleware.cors import CORSMiddleware
 import backend
@@ -110,3 +110,36 @@ def create_portfolio(portfolio: dict = Body(...)):
         return {"pid": new_portfolio[0], "pname": new_portfolio[1]}
     else:
         raise HTTPException(status_code=400, detail="Failed to create portfolio")
+
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel
+
+import traceback
+
+@app.post("/api/remove_stock")
+async def remove_stock_endpoint(request: Request):
+    data = await request.json()
+    print("Received data:", data)
+    stock = StockRemove(**data)
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        backend.remove_stock_by_primary_key(stock.ticker, stock.uid, stock.portfolio_id, conn, cur)
+        cur.close()
+        conn.close()
+        return {"message": "Stock removed successfully"}
+    except Exception as e:
+        print("Exception during remove_stock:", e)
+        traceback.print_exc()
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+        raise HTTPException(status_code=500, detail=str(e))

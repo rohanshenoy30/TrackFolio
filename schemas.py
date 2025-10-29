@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import date
+from typing import Optional
 
 class StockCreate(BaseModel):
     ticker: str
@@ -8,3 +9,8 @@ class StockCreate(BaseModel):
     quantity: int
     portfolio_id: int
     uid: str
+
+class StockRemove(BaseModel):
+    ticker: str
+    uid: str
+    portfolio_id: int  # pid

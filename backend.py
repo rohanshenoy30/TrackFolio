@@ -64,24 +64,15 @@ def add_stock(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, q
         );
     """, conn, cur)
 
-def remove_stock_by_attributes(portfolio_id, ticker, buy_date : datetime, sell_date : datetime):
-    execute(f"""
-        delete from stock 
-        where (
-            pid, 
-            ticker, 
-            buy_date, 
-            sell_date
-        ) = (
-            {portfolio_id}, 
-            \'{ticker}\', 
-            \'{buy_date}\', 
-            \'{sell_date}\'
-        );
-    """)
-
-def remove_stock(portfolio_id, stock : StockCreate):
-    remove_stock_by_attributes(portfolio_id, stock.ticker, stock.buy_date, stock.sell_date)
+def remove_stock_by_primary_key(ticker, uid, portfolio_id, conn, cursor):
+    query = """
+    DELETE FROM stock
+    WHERE ticker = %s
+      AND uid = %s
+      AND pid = %s;
+    """
+    cursor.execute(query, (ticker, uid, portfolio_id))
+    conn.commit()
 
 def update_stock_quantity_by_attributes(portfolio_id, ticker, buy_date : datetime, sell_date : datetime, new_quantity):
     execute(f"""

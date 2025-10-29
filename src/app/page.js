@@ -2,12 +2,55 @@
 
 import React, { useState } from 'react'
 import { GoogleLogin } from '@react-oauth/google'
-import { Chart, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title} from 'chart.js'
+import { Chart, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement} from 'chart.js'
 import './main.css'
 import { Bar } from 'react-chartjs-2'
 import {onSuccess, onError} from './login'
+import { useRef } from 'react';
+import { Line } from 'react-chartjs-2';
 
-Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title,)
+Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement)
+
+
+function PnlSeriesChart({ pnlData }) {
+  if (!pnlData || pnlData.length === 0) {
+    return <div>No PnL data to display</div>;
+  }
+  
+  const firstSeries = pnlData[0].pnl_series;
+  const dataPoints = firstSeries.map(p => p.pnl);  // <-- numbers
+const labels     = firstSeries.map(p => p.date); // <-- date strings
+  
+  console.log('Chart points:', dataPoints); // should be numbers
+  console.log('Labels:', labels); // should match the points length
+
+  const data = {
+    labels,
+    datasets: [{
+      label: `PnL for ${pnlData[0].ticker}`,
+      data: dataPoints,
+      fill: false,
+      borderColor: '#4caf50',
+      borderWidth: 2,
+      tension: 0.1,
+    }]
+  };
+
+  const options = {
+    responsive: true,
+    scales: {
+      x: { title: { display: true, text: 'Day' } },
+      y: { beginAtZero: false }
+    }
+  };
+  
+  return (
+    <div style={{ width: '100%', height: 400 }}>
+      <Line data={data} options={{ ...options, maintainAspectRatio: false }} />
+    </div>
+  );  
+}
+
 
 export default function LoginPage() {
   const [user, setUser] = useState(null)
@@ -171,6 +214,51 @@ export default function LoginPage() {
       alert(`Error removing stock: ${error.message}`);
     }
   };
+
+
+  const fetchTimeoutRef = useRef(null);
+  const [pnlSeries, setPnlSeries] = useState(null);
+  React.useEffect(() => {
+    if (holdings.length === 0 || !activePortfolioId || !user) return;
+
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+
+    fetchTimeoutRef.current = setTimeout(() => {
+      // Your fetch code here
+      fetch('/api/portfolio_pnl_series', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stocks: holdings.map(stock => ({
+            ticker: stock.ticker,
+            buy_date: stock.buy_date,
+            sell_date: stock.sell_date,
+            quantity: stock.qty,
+          }))
+        }),
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch portfolio pnl');
+          return res.json();
+        })
+        .then(data => {
+          console.log('Portfolio PnL series:', data);
+          setPnlSeries(data)
+
+          // Update your pnl state here if needed
+        })
+        .catch(e => {
+          if (e.name !== 'AbortError') {
+            console.error(e);
+          }
+        });
+    }, 200); // delay in ms, adjust as you like
+
+    return () => clearTimeout(fetchTimeoutRef.current);
+
+  }, [holdings, activePortfolioId, user]);
 
   return (
     <main className="main-back">
@@ -409,6 +497,7 @@ export default function LoginPage() {
                       marginTop: '1.5rem'
                     }}>
                       <Bar data={barChartData} options={barChartOptions} />
+                      {pnlSeries && <PnlSeriesChart pnlData={pnlSeries} />}
                     </div>
                   </div>
                 </div>

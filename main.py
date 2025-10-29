@@ -1,13 +1,13 @@
+import psycopg2
 from fastapi import FastAPI
-from schemas import StockCreate, StockRemove
+from schemas import StockCreate, StockRemove, StockItem
 from database import get_db_connection
 from fastapi.middleware.cors import CORSMiddleware
 import backend
 from fastapi import FastAPI, HTTPException
-from google.oauth2 import id_token
-from google.auth.transport import requests
 from fastapi import Query
 from finance import fetch_and_print_prices
+from finance import get_stock_pnl_time_series
 
 origins = [
     "http://localhost:3000",
@@ -143,3 +143,15 @@ async def remove_stock_endpoint(request: Request):
         if conn:
             conn.close()
         raise HTTPException(status_code=500, detail=str(e))
+from typing import List
+class PortfolioStocksRequest(BaseModel):
+    stocks: List[StockItem]
+
+@app.post("/api/portfolio_pnl_series")
+def portfolio_pnl_series(request: PortfolioStocksRequest):
+    all_series = []
+    for stock in request.stocks:
+        print(stock.buy_date, stock.sell_date, stock.ticker, stock.quantity)
+        series = get_stock_pnl_time_series(stock.ticker, stock.buy_date, stock.sell_date, stock.quantity)
+        all_series.append({"ticker": stock.ticker, "pnl_series": series})
+    return all_series

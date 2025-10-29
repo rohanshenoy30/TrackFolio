@@ -14,3 +14,10 @@ class StockRemove(BaseModel):
     ticker: str
     uid: str
     portfolio_id: int  # pid
+
+
+class StockItem(BaseModel):
+    ticker: str
+    buy_date: str
+    sell_date: str
+    quantity: float

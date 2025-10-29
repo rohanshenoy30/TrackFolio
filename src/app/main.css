@@ -102,3 +102,11 @@
     color: #d9fdd3;
     font-size: 1.12rem;
 }
+
+.add-stock{
+    background-color: #10291b;
+    padding: 1.4rem;
+    border-radius: 10px;
+    border: 1px solid #205f38;
+    margin-bottom: 2rem;
+}

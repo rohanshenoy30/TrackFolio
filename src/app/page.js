@@ -11,21 +11,85 @@ import { Line } from 'react-chartjs-2';
 
 Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement)
 
+function findStockWithLastEndingDate(pnlData) {
+  let lastDate = null;
+  let lastStock = null;
+
+  pnlData.forEach(stock => {
+    const stockLastDateStr = stock.pnl_series.reduce((maxDate, point) => {
+      return (point.date > maxDate) ? point.date : maxDate;
+    }, '0000-00-00'); // very early date initialization
+
+    if (!lastDate || stockLastDateStr > lastDate) {
+      lastDate = stockLastDateStr;
+      lastStock = stock;
+    }
+  });
+
+  return lastStock;
+}
+
 function PnlSeriesChart({ pnlData }) {
   if (!pnlData || pnlData.length === 0) {
     return <div>No PnL data to display</div>;
   }
-  
-  let pnl = {}
 
-  pnlData.forEach(stockPnL => {
-    stockPnL.pnl_series.forEach(point => {
-      const pnlValue = Object.values(point.pnl)[0];  // extract number
-      pnl[point.date] = (pnl[point.date] ?? 0) + pnlValue;
+  // Find the stock with the last ending date
+  const findStockWithLastEndingDate = (pnlData) => {
+    let lastDate = null;
+    let lastStock = null;
+
+    pnlData.forEach(stock => {
+      const stockLastDateStr = stock.pnl_series.reduce((maxDate, point) => {
+        return (point.date > maxDate) ? point.date : maxDate;
+      }, '0000-00-00');
+
+      if (!lastDate || stockLastDateStr > lastDate) {
+        lastDate = stockLastDateStr;
+        lastStock = stock;
+      }
     });
+
+    return lastStock;
+  };
+
+  const lastStock = findStockWithLastEndingDate(pnlData);
+  const lastDate = lastStock.pnl_series.reduce((maxDate, point) => {
+    return (point.date > maxDate) ? point.date : maxDate;
+  }, '0000-00-00');
+
+  // Collect all unique dates across all stocks
+  let allDatesSet = new Set();
+  pnlData.forEach(stock => {
+    stock.pnl_series.forEach(p => allDatesSet.add(p.date));
+  });
+  const allDates = Array.from(allDatesSet).sort();
+
+  // Track last known pnl per stock
+  let lastValues = {};
+  pnlData.forEach(stockPnL => {
+    const points = stockPnL.pnl_series;
+    const lastPoint = points[points.length - 1];
+    lastValues[stockPnL.ticker] = Object.values(lastPoint.pnl)[0];
   });
 
-  console.log(pnl)
+  // Accumulate total pnl per date extending last values forward
+  let pnl = {};
+  allDates.forEach(date => {
+    pnl[date] = 0;
+    pnlData.forEach(stockPnL => {
+      const pointForDate = stockPnL.pnl_series.find(p => p.date === date);
+      if (pointForDate) {
+        pnl[date] += Object.values(pointForDate.pnl)[0];
+      } else {
+        // For dates beyond stock's last date, add last known pnl value
+        const lastDateForStock = stockPnL.pnl_series[stockPnL.pnl_series.length - 1].date;
+        if (date > lastDateForStock) {
+          pnl[date] += lastValues[stockPnL.ticker];
+        }
+      }
+    });
+  });
 
   const sortedDates = Object.keys(pnl).sort();
   const totalSeries = sortedDates.map(date => ({
@@ -33,38 +97,38 @@ function PnlSeriesChart({ pnlData }) {
     pnl: pnl[date]
   }));
 
-  const dataPoints = totalSeries.map(p => p.pnl);  // <-- numbers
-  const labels     = totalSeries.map(p => p.date); // <-- date strings
-  
+  const dataPoints = totalSeries.map(p => p.pnl);
+  const labels = totalSeries.map(p => p.date);
+
   const numPoints = dataPoints.length;
   const pointRadius = numPoints > 50 ? 1 : numPoints > 20 ? 2 : 3;
 
   const data = {
     labels,
     datasets: [{
-      label: `PnL for ${pnlData[0].ticker}`,
+      label: "Total Portfolio PnL",
       data: dataPoints,
       fill: false,
       borderColor: '#4caf50',
       borderWidth: 2,
       tension: 0.1,
-      pointRadius:pointRadius
+      pointRadius: pointRadius
     }]
   };
 
   const options = {
     responsive: true,
     scales: {
-      x: { title: { display: true, text: 'Day' } },
+      x: { title: { display: true, text: 'Date' } },
       y: { beginAtZero: false }
     }
   };
-  
+
   return (
     <div style={{ width: '100%', height: 400 }}>
       <Line data={data} options={{ ...options, maintainAspectRatio: false }} />
     </div>
-  );  
+  );
 }
 
 

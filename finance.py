@@ -55,7 +55,7 @@ def get_stock_pnl_time_series(ticker, buy_date, sell_date, quantity):
     for date, row in df.iterrows():
         pnl_per_share = safe_value(row['Close'] - buy_price)
         pnl_total = pnl_per_share * quantity
-        pnl_series.append({"date": date.strftime("%Y-%m-%d"), "pnl": pnl_total})
+        pnl_series.append({"date": date.strftime("%Y-%m-%d"), "pnl": safe_value(pnl_total)})
     return pnl_series
 
 

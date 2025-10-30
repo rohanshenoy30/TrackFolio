@@ -1,3 +1,4 @@
+import math
 import yfinance as yf
 import time
 from schemas import StockItem
@@ -37,6 +38,11 @@ def strip_time(date_str):
     # Extract only the date part before 'T'
     return date_str.split('T')[0] if 'T' in date_str else date_str
 
+def safe_value(x):
+    if isinstance(x, float) and (math.isinf(x) or math.isnan(x)):
+        return 0
+    return x
+
 def get_stock_pnl_time_series(ticker, buy_date, sell_date, quantity):
     clean_buy_date = strip_time(buy_date)
     clean_sell_date = strip_time(sell_date)
@@ -47,7 +53,7 @@ def get_stock_pnl_time_series(ticker, buy_date, sell_date, quantity):
     buy_price = df['Close'].iloc[0]
     pnl_series = []
     for date, row in df.iterrows():
-        pnl_per_share = row['Close'] - buy_price
+        pnl_per_share = safe_value(row['Close'] - buy_price)
         pnl_total = pnl_per_share * quantity
         pnl_series.append({"date": date.strftime("%Y-%m-%d"), "pnl": pnl_total})
     return pnl_series

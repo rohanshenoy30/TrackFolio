@@ -11,18 +11,33 @@ import { Line } from 'react-chartjs-2';
 
 Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement)
 
-
 function PnlSeriesChart({ pnlData }) {
   if (!pnlData || pnlData.length === 0) {
     return <div>No PnL data to display</div>;
   }
   
-  const firstSeries = pnlData[0].pnl_series;
-  const dataPoints = firstSeries.map(p => p.pnl);  // <-- numbers
-const labels     = firstSeries.map(p => p.date); // <-- date strings
+  let pnl = {}
+
+  pnlData.forEach(stockPnL => {
+    stockPnL.pnl_series.forEach(point => {
+      const pnlValue = Object.values(point.pnl)[0];  // extract number
+      pnl[point.date] = (pnl[point.date] ?? 0) + pnlValue;
+    });
+  });
+
+  console.log(pnl)
+
+  const sortedDates = Object.keys(pnl).sort();
+  const totalSeries = sortedDates.map(date => ({
+    date,
+    pnl: pnl[date]
+  }));
+
+  const dataPoints = totalSeries.map(p => p.pnl);  // <-- numbers
+  const labels     = totalSeries.map(p => p.date); // <-- date strings
   
-  console.log('Chart points:', dataPoints); // should be numbers
-  console.log('Labels:', labels); // should match the points length
+  const numPoints = dataPoints.length;
+  const pointRadius = numPoints > 50 ? 1 : numPoints > 20 ? 2 : 3;
 
   const data = {
     labels,
@@ -33,6 +48,7 @@ const labels     = firstSeries.map(p => p.date); // <-- date strings
       borderColor: '#4caf50',
       borderWidth: 2,
       tension: 0.1,
+      pointRadius:pointRadius
     }]
   };
 
